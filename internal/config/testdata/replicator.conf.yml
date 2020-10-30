@@ -1,0 +1,44 @@
+app:
+  data_file: '/etc/mysql-tarantool-replicator/state.info'
+  logging:
+    level: 'debug'
+    syslog_enabled: true
+    file_enabled: true
+    file_name: '/var/log/mysql-tarantool-repl.log'
+    file_max_size: 256
+    file_max_backups: 3
+    file_max_age: 5
+
+replication:
+  server_id: 100
+  gtid_mode: true
+
+  mysql:
+    dump:
+      exec_path: '/usr/bin/mysqldump'
+      skip_master_data: false
+    addr: '127.0.0.1:3306'
+    user: 'repl'
+    password: 'repl'
+    charset: 'utf8mb4_unicode_ci'
+
+  tarantool:
+    addr: '127.0.0.1:3301'
+    user: 'repl'
+    password: 'repl'
+    max_retries: 3
+    connect_timeout: '500ms'
+    request_timeout: '500ms'
+
+  mappings:
+    - source:
+        schema: 'city'
+        table: 'users'
+        pks:
+          - id
+        columns:
+          - username
+          - password
+          - email
+      dest:
+        space: 'users'
