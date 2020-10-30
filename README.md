@@ -1,2 +1,2 @@
-# go-mytnt
-MySQL - Tarantool replicator
+# MySQL - Tarantool replicator
+
