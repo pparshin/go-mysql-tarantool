@@ -1,7 +1,6 @@
 package bridge
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -125,7 +124,7 @@ func (b *binlogPos) UnmarshalJSON(src []byte) error {
 
 type stateSaver interface {
 	load() (position, error)
-	save(pos position) error
+	save(pos position, force bool) error
 	position() position
 	close() error
 }
@@ -183,25 +182,24 @@ func (s *fileSaver) load() (position, error) {
 	return pos, nil
 }
 
-func (s *fileSaver) save(pos position) error {
+func (s *fileSaver) save(pos position, force bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.pos = pos
 
 	now := time.Now().Unix()
-	if now-s.savedAt < saveThreshold {
+	if !force && (now-s.savedAt < saveThreshold) {
 		return nil
 	}
 	s.savedAt = now
 
-	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(pos)
+	buf, err := json.Marshal(pos)
 	if err != nil {
 		return fmt.Errorf("failed to save sync position, pos: %s, what: %s", pos, err)
 	}
 
-	err = ioutil2.WriteFileAtomic(s.filepath, buf.Bytes(), 0644)
+	err = ioutil2.WriteFileAtomic(s.filepath, buf, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to save sync position, file: %s, pos: %s, what: %s", s.filepath, pos, err)
 	}
@@ -217,5 +215,5 @@ func (s *fileSaver) position() position {
 }
 
 func (s *fileSaver) close() error {
-	return s.save(s.position())
+	return s.save(s.position(), true)
 }

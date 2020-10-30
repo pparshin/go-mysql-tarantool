@@ -64,7 +64,7 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 		return errors.Errorf("sync %s request, what: %s", e.Action, err)
 	}
 
-	batch := batch{
+	batch := &batch{
 		action: action(e.Action),
 		reqs:   reqs,
 	}

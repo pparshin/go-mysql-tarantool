@@ -280,12 +280,12 @@ func (b *Bridge) syncLoop() error {
 		select {
 		case got := <-b.syncCh:
 			switch v := got.(type) {
-			case position:
-				err := b.stateSaver.save(v)
+			case *savePos:
+				err := b.stateSaver.save(v.pos, v.force)
 				if err != nil {
 					return err
 				}
-			case batch:
+			case *batch:
 				err := b.doBatch(v)
 				if err != nil {
 					return err
@@ -297,7 +297,7 @@ func (b *Bridge) syncLoop() error {
 	}
 }
 
-func (b *Bridge) doBatch(req batch) error {
+func (b *Bridge) doBatch(req *batch) error {
 	var queries []tnt.Query
 	switch req.action {
 	case actionUpdate:
