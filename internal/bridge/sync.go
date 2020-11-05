@@ -7,6 +7,16 @@ import (
 	"github.com/siddontang/go-mysql/replication"
 )
 
+var emptyGTID = mustCreateGTID(mysql.MySQLFlavor, "")
+
+func mustCreateGTID(flavor, s string) mysql.GTIDSet {
+	set, err := mysql.ParseGTIDSet(flavor, s)
+	if err != nil {
+		panic(err)
+	}
+	return set
+}
+
 type eventHandler struct {
 	bridge   *Bridge
 	gtidMode bool
@@ -46,13 +56,13 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 		return nil
 	}
 
-	var reqs []request
+	var reqs []*request
 	var err error
 	switch e.Action {
 	case canal.InsertAction:
-		reqs, err = makeInsertRequests(rule, e.Rows)
+		reqs, err = makeInsertBatch(rule, e.Rows)
 	case canal.DeleteAction:
-		reqs, err = makeDeleteRequests(rule, e.Rows)
+		reqs, err = makeDeleteBatch(rule, e.Rows)
 	case canal.UpdateAction:
 		reqs, err = makeUpdateRequests(rule, e.Rows)
 	default:
@@ -74,15 +84,24 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	return h.bridge.ctx.Err()
 }
 
-func (h *eventHandler) OnGTID(_ mysql.GTIDSet) error {
+func (h *eventHandler) OnGTID(set mysql.GTIDSet) error {
+	if h.gtidMode {
+		h.bridge.syncCh <- &savePos{
+			pos:   newGTIDSet(set),
+			force: false,
+		}
+	}
+
 	return h.bridge.ctx.Err()
 }
 
 func (h *eventHandler) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force bool) error {
 	if h.gtidMode {
-		h.bridge.syncCh <- &savePos{
-			pos:   newGTIDSet(set),
-			force: force,
+		if force && !emptyGTID.Equal(set) {
+			h.bridge.syncCh <- &savePos{
+				pos:   newGTIDSet(set),
+				force: force,
+			}
 		}
 	} else {
 		h.bridge.syncCh <- &savePos{
@@ -96,72 +115,4 @@ func (h *eventHandler) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force 
 
 func (h *eventHandler) String() string {
 	return "TarantoolBridgeEventHandler"
-}
-
-func makeUpdateOrCreateRequests(action action, r *rule, rows [][]interface{}) ([]request, error) {
-	reqs := make([]request, 0, len(rows))
-
-	for _, row := range rows {
-		keys := make([]interface{}, 0, len(r.pks))
-		for _, pk := range r.pks {
-			value, err := r.tableInfo.GetColumnValue(pk, row)
-			if err != nil {
-				return nil, err
-			}
-			keys = append(keys, value)
-		}
-
-		args := make([]interface{}, 0, len(r.columns))
-		for _, col := range r.columns {
-			value, err := r.tableInfo.GetColumnValue(col, row)
-			if err != nil {
-				return nil, err
-			}
-			args = append(args, value)
-		}
-
-		req := request{
-			action: action,
-			space:  r.space,
-			keys:   keys,
-			args:   args,
-		}
-
-		reqs = append(reqs, req)
-	}
-
-	return reqs, nil
-}
-
-func makeInsertRequests(r *rule, rows [][]interface{}) ([]request, error) {
-	return makeUpdateOrCreateRequests(actionInsert, r, rows)
-}
-
-func makeUpdateRequests(r *rule, rows [][]interface{}) ([]request, error) {
-	return makeUpdateOrCreateRequests(actionUpdate, r, rows)
-}
-
-func makeDeleteRequests(r *rule, rows [][]interface{}) ([]request, error) {
-	reqs := make([]request, 0, len(rows))
-
-	for _, row := range rows {
-		keys := make([]interface{}, 0, len(r.pks))
-		for _, pk := range r.pks {
-			value, err := r.tableInfo.GetColumnValue(pk, row)
-			if err != nil {
-				return nil, err
-			}
-			keys = append(keys, value)
-		}
-
-		req := request{
-			action: actionDelete,
-			space:  r.space,
-			keys:   keys,
-		}
-
-		reqs = append(reqs, req)
-	}
-
-	return reqs, nil
 }

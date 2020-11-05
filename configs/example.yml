@@ -17,10 +17,12 @@ replication:
     dump:
       exec_path: '/usr/bin/mysqldump'
       skip_master_data: false
+      extra_options:
+        - '--column-statistics=0'
     addr: '127.0.0.1:3306'
     user: 'repl'
     password: 'repl'
-    charset: 'utf8mb4_unicode_ci'
+    charset: 'utf8'
 
   tarantool:
     addr: '127.0.0.1:3301'
@@ -34,8 +36,6 @@ replication:
     - source:
         schema: 'city'
         table: 'users'
-        pks:
-          - id
         columns:
           - username
           - password

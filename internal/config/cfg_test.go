@@ -41,10 +41,11 @@ func TestReadFromFile_ValidPath(t *testing.T) {
 	connSrc := cfg.Replication.ConnectionSrc
 	assert.Equal(t, "/usr/bin/mysqldump", connSrc.Dump.ExecPath)
 	assert.False(t, connSrc.Dump.SkipMasterData)
+	assert.Equal(t, []string{"--column-statistics=0"}, connSrc.Dump.ExtraOptions)
 	assert.Equal(t, "127.0.0.1:3306", connSrc.Addr)
 	assert.Equal(t, "repl", connSrc.User)
 	assert.Equal(t, "repl", connSrc.Password)
-	assert.Equal(t, "utf8mb4_unicode_ci", connSrc.Charset)
+	assert.Equal(t, "utf8", connSrc.Charset)
 
 	destSrc := cfg.Replication.ConnectionDest
 	assert.Equal(t, "127.0.0.1:3301", destSrc.Addr)
@@ -60,7 +61,6 @@ func TestReadFromFile_ValidPath(t *testing.T) {
 	mapping := mappings[0]
 	assert.Equal(t, "city", mapping.Source.Schema)
 	assert.Equal(t, "users", mapping.Source.Table)
-	assert.Equal(t, []string{"id"}, mapping.Source.Pks)
 	assert.Equal(t, []string{"username", "password", "email"}, mapping.Source.Columns)
 	assert.Equal(t, "users", mapping.Dest.Space)
 }

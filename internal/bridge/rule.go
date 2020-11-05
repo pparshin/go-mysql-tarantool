@@ -7,10 +7,10 @@ import (
 )
 
 type rule struct {
-	schema  string
-	table   string
-	pks     []string
-	columns []string
+	schema string
+	table  string
+	pks    []*attribute // primary keys
+	attrs  []*attribute // mapping attributes except primary keys
 
 	space string
 

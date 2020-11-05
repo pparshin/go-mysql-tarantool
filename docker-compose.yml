@@ -1,0 +1,23 @@
+version: '3.4'
+
+services:
+  mysql:
+    image: mysql:${MYSQL_VERSION:-5.7.21}
+    environment:
+      - MYSQL_DATABASE=city
+      - MYSQL_USER=repl
+      - MYSQL_PASSWORD=repl
+      - MYSQL_ROOT_PASSWORD=root_pwd
+    command: --bind-address=0.0.0.0 --ssl=0 --log-bin=mysql-bin --server-id=1 --enforce_gtid_consistency=ON --gtid_mode=ON
+    volumes:
+      - ./docker/mysql:/docker-entrypoint-initdb.d
+    ports:
+      - '13306:3306'
+
+  tarantool:
+    build:
+      context: ./docker/tarantool
+      args:
+        VERSION: ${TARANTOOL_VERSION:-2.6.0}
+    ports:
+      - '13301:3301'

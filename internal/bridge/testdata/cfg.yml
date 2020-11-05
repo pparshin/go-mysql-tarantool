@@ -1,10 +1,10 @@
 app:
-  data_file: '/etc/mysql-tarantool-replicator/state.info'
+  data_file: '/tmp/mysql-tarantool-replicator/state.info'
   logging:
     level: 'debug'
-    syslog_enabled: true
-    file_enabled: true
-    file_name: '/var/log/mysql-tarantool-repl.log'
+    syslog_enabled: false
+    file_enabled: false
+    file_name: '/tmp/mysql-tarantool-repl.log'
     file_max_size: 256
     file_max_backups: 3
     file_max_age: 5
@@ -19,13 +19,13 @@ replication:
       skip_master_data: false
       extra_options:
         - '--column-statistics=0'
-    addr: '127.0.0.1:3306'
+    addr: '127.0.0.1:13306'
     user: 'repl'
     password: 'repl'
     charset: 'utf8'
 
   tarantool:
-    addr: '127.0.0.1:3301'
+    addr: '127.0.0.1:13301'
     user: 'repl'
     password: 'repl'
     max_retries: 3
@@ -42,3 +42,10 @@ replication:
           - email
       dest:
         space: 'users'
+    - source:
+        schema: 'city'
+        table: 'logins'
+        columns:
+          - attempts
+      dest:
+        space: 'logins'
