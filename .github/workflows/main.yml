@@ -38,8 +38,3 @@ jobs:
           make env_up
           make run_tests
           make env_down
-
-      - name: Lint
-        run: |
-          curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $GITHUB_WORKSPACE v1.32.1
-          make lint
