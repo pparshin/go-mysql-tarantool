@@ -18,6 +18,6 @@ It uses `mysqldump` to fetch the origin data at first, then syncs data increment
 
 Replicator can map MySQL tables to one or more Tarantool spaces. 
 Each mapping item contains the names of a database and a table, 
-a list of replicated columns including primary keys, a space name.
+a list of replicated columns, a space name.
 
-If no primary keys are given, replicator reads them from MySQL table info automatically.
+Replicator reads primary keys from MySQL table info and sync them automatically.

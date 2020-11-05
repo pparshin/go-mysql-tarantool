@@ -18,6 +18,8 @@ const (
 
 type position interface {
 	fmt.Stringer
+
+	equal(another position) bool
 	clone() position
 }
 
@@ -42,7 +44,19 @@ func (g *gtidSet) clone() position {
 	}
 }
 
+func (g *gtidSet) equal(another position) bool {
+	switch v := another.(type) {
+	case *gtidSet:
+		return g.pos.Equal(v.pos)
+	default:
+		return false
+	}
+}
+
 func (g *gtidSet) String() string {
+	if g.pos == nil {
+		return ""
+	}
 	return g.pos.String()
 }
 
@@ -88,6 +102,15 @@ func (b *binlogPos) clone() position {
 			Name: b.pos.Name,
 			Pos:  b.pos.Pos,
 		},
+	}
+}
+
+func (b *binlogPos) equal(another position) bool {
+	switch v := another.(type) {
+	case *binlogPos:
+		return b.pos.Compare(v.pos) == 0
+	default:
+		return false
 	}
 }
 
@@ -143,7 +166,15 @@ func newFileSaver(path string, gtidMode bool) (*fileSaver, error) {
 		return nil, err
 	}
 
+	var pos position
+	if gtidMode {
+		pos = &gtidSet{pos: emptyGTID}
+	} else {
+		pos = &binlogPos{pos: mysql.Position{}}
+	}
+
 	return &fileSaver{
+		pos:      pos,
 		gtidMode: gtidMode,
 		filepath: path,
 		savedAt:  time.Now().Unix(),
@@ -183,6 +214,10 @@ func (s *fileSaver) load() (position, error) {
 }
 
 func (s *fileSaver) save(pos position, force bool) error {
+	if pos == nil {
+		return nil
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -210,6 +245,10 @@ func (s *fileSaver) save(pos position, force bool) error {
 func (s *fileSaver) position() position {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	if s.pos == nil {
+		return nil
+	}
 
 	return s.pos.clone()
 }

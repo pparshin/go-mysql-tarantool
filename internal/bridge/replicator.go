@@ -19,26 +19,6 @@ var (
 	ErrRuleNotExist = errors.New("rule is not exist")
 )
 
-type action string
-
-const (
-	actionInsert action = "insert"
-	actionUpdate action = "update"
-	actionDelete action = "delete"
-)
-
-type request struct {
-	action action
-	space  string
-	keys   []interface{}
-	args   []interface{}
-}
-
-type batch struct {
-	action action
-	reqs   []request
-}
-
 type Bridge struct {
 	rules map[string]*rule
 
@@ -69,13 +49,15 @@ func New(cfg *config.Config, logger zerolog.Logger) (*Bridge, error) {
 		return nil, err
 	}
 
+	if err := b.newCanal(cfg); err != nil {
+		return nil, err
+	}
+
 	if err := b.newRules(cfg); err != nil {
 		return nil, err
 	}
 
-	if err := b.newCanal(cfg); err != nil {
-		return nil, err
-	}
+	b.syncRulesAndCanalDump()
 
 	// We must use binlog full row image.
 	if err := b.canal.CheckBinlogRowImage("FULL"); err != nil {
@@ -113,36 +95,28 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 			return err
 		}
 
-		pks := make([]string, 0)
-		if len(source.Pks) == 0 {
-			b.logger.Info().
-				Str("schema", source.Schema).
-				Str("table", source.Table).
-				Msg("no user defined primary columns: load them from table primary index")
-			for _, pki := range tableInfo.PKColumns {
-				column := tableInfo.GetPKColumn(pki)
-				pks = append(pks, column.Name)
-			}
-		} else {
-			pks = source.Pks
-		}
-
+		pks := newAttrsFromPKs(tableInfo)
 		if len(pks) == 0 {
-			return fmt.Errorf("no primary keys given or found, schema: %s, table: %s", source.Schema, source.Table)
+			return fmt.Errorf("no primary keys found, schema: %s, table: %s", source.Schema, source.Table)
 		}
 
-		columns := make([]string, 0, len(source.Columns))
-		for _, col := range source.Columns {
+		attrs := make([]*attribute, 0, len(source.Columns))
+		for i, name := range source.Columns {
 			isPK := false
 			for _, pk := range pks {
-				if col == pk {
+				if name == pk.name {
 					isPK = true
 					break
 				}
 			}
 
 			if !isPK {
-				columns = append(columns, col)
+				tupIndex := uint64(i + len(pks))
+				attr, err := newAttr(tableInfo, tupIndex, name)
+				if err != nil {
+					return err
+				}
+				attrs = append(attrs, attr)
 			}
 		}
 
@@ -150,7 +124,7 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 			schema:    source.Schema,
 			table:     source.Table,
 			pks:       pks,
-			columns:   columns,
+			attrs:     attrs,
 			space:     mapping.Dest.Space,
 			tableInfo: tableInfo,
 		}
@@ -197,12 +171,30 @@ func (b *Bridge) newCanal(cfg *config.Config) error {
 	canalCfg.Dump.ExecutionPath = myCfg.Dump.ExecPath
 	canalCfg.Dump.DiscardErr = false
 	canalCfg.Dump.SkipMasterData = myCfg.Dump.SkipMasterData
+	canalCfg.Dump.ExtraOptions = myCfg.Dump.ExtraOptions
+
+	syncOnly := make([]string, 0, len(cfg.Replication.Mappings))
+	for _, mapping := range cfg.Replication.Mappings {
+		source := mapping.Source
+		regex := fmt.Sprintf("%s\\.%s", source.Schema, source.Table)
+		syncOnly = append(syncOnly, regex)
+	}
+	canalCfg.IncludeTableRegex = syncOnly
 
 	cn, err := canal.NewCanal(canalCfg)
 	if err != nil {
 		return err
 	}
 
+	eH := newEventHandler(b, cfg.Replication.GTIDMode)
+	cn.SetEventHandler(eH)
+
+	b.canal = cn
+
+	return nil
+}
+
+func (b *Bridge) syncRulesAndCanalDump() {
 	var db string
 	dbs := map[string]struct{}{}
 	tables := make([]string, 0, len(b.rules))
@@ -222,11 +214,6 @@ func (b *Bridge) newCanal(cfg *config.Config) error {
 
 		b.canal.AddDumpDatabases(keys...)
 	}
-
-	eH := newEventHandler(b, cfg.Replication.GTIDMode)
-	cn.SetEventHandler(eH)
-
-	return nil
 }
 
 func (b *Bridge) newTarantoolClient(cfg *config.Config) {
@@ -244,16 +231,25 @@ func (b *Bridge) newTarantoolClient(cfg *config.Config) {
 }
 
 // Run syncs the data from MySQL and inserts to Tarantool
-// until closed or meets error.
-func (b *Bridge) Run() error {
+// until closed or meets errors.
+//
+// Returns closed channel with all errors or an empty channel.
+func (b *Bridge) Run() <-chan error {
+	errCh := make(chan error, 3)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		err := b.syncLoop()
 		if err != nil {
-			b.logger.Err(err).Msg("sync error, stopping replication...")
-		}
-		err = b.Close()
-		if err != nil {
-			b.logger.Err(err).Msg("failed to stop replicator")
+			errCh <- fmt.Errorf("sync loop error: %s", err)
+
+			err = b.Close()
+			if err != nil {
+				errCh <- err
+			}
 		}
 	}()
 
@@ -267,12 +263,16 @@ func (b *Bridge) Run() error {
 	default:
 		err = errors.New("unsupported master position: expected GTID set or binlog file position")
 	}
+
 	if err != nil {
-		b.logger.Err(err).Msg("broken replication")
-		return err
+		errCh <- err
 	}
 
-	return nil
+	b.cancel()
+	wg.Wait()
+	close(errCh)
+
+	return errCh
 }
 
 func (b *Bridge) syncLoop() error {
@@ -309,7 +309,7 @@ func (b *Bridge) doBatch(req *batch) error {
 	}
 
 	for _, q := range queries {
-		err := b.tntClient.Exec(b.ctx, q)
+		_, err := b.tntClient.Exec(context.Background(), q)
 		if err != nil {
 			b.logger.Err(err).
 				Str("query", fmt.Sprintf("%+v", q)).
@@ -326,8 +326,8 @@ func (b *Bridge) Close() error {
 
 	b.closeOnce.Do(func() {
 		b.canal.Close()
-		err = b.stateSaver.close()
 		b.cancel()
+		err = b.stateSaver.close()
 	})
 
 	return err

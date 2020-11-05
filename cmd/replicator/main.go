@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger := initLogger(cfg)
-	logger.Info().Msgf("Starting replicator %s, commit %s, built at %s", version, commit, buildDate)
+	logger.Info().Msgf("starting replicator %s, commit %s, built at %s", version, commit, buildDate)
 
 	b, err := bridge.New(cfg, logger)
 	if err != nil {
@@ -47,13 +47,14 @@ func main() {
 	}
 
 	go func() {
-		errRun := b.Run()
-		if errRun != nil {
-			logger.Err(err).Msg("stopped sync: fix error and restart")
+		errors := b.Run()
+		for errRun := range errors {
+			logger.Err(errRun).Msg("got sync error")
 		}
+
 		errClose := b.Close()
 		if errClose != nil {
-			logger.Err(err).Msg("failed to stop replicator")
+			logger.Err(errClose).Msg("failed to stop replicator")
 		}
 	}()
 
@@ -61,7 +62,7 @@ func main() {
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-interrupt
 
-	logger.Info().Msgf("Received system signal: %s. Shutting down replicator", sig)
+	logger.Info().Msgf("received system signal: %s. Shutting down replicator", sig)
 
 	err = b.Close()
 	if err != nil {
@@ -76,7 +77,7 @@ func initLogger(cfg *config.Config) zerolog.Logger {
 
 	logLevel, err := zerolog.ParseLevel(loggingCfg.Level)
 	if err != nil {
-		log.Warn().Msgf("Unknown Level String: '%s', defaulting to DebugLevel", loggingCfg.Level)
+		log.Warn().Msgf("unknown Level string: '%s', defaulting to DebugLevel", loggingCfg.Level)
 		logLevel = zerolog.DebugLevel
 	}
 
@@ -86,7 +87,7 @@ func initLogger(cfg *config.Config) zerolog.Logger {
 	if loggingCfg.SysLogEnabled {
 		w, err := syslog.New(syslog.LOG_INFO, "mysql-tarantool-replicator")
 		if err != nil {
-			log.Warn().Err(err).Msg("Unable to connect to the system log daemon")
+			log.Warn().Err(err).Msg("unable to connect to the system log daemon")
 		} else {
 			writers = append(writers, zerolog.SyslogLevelWriter(w))
 		}
@@ -95,7 +96,7 @@ func initLogger(cfg *config.Config) zerolog.Logger {
 	if loggingCfg.FileLoggingEnabled {
 		w, err := newRollingLogFile(&loggingCfg)
 		if err != nil {
-			log.Warn().Err(err).Msg("Unable to init file logger")
+			log.Warn().Err(err).Msg("unable to init file logger")
 		} else {
 			writers = append(writers, w)
 		}

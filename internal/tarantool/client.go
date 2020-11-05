@@ -48,29 +48,29 @@ func New(opts *Options) *Client {
 	}
 }
 
-func (c *Client) Exec(ctx context.Context, q tarantool.Query, opts ...tarantool.ExecOption) error {
-	var err error
+func (c *Client) Exec(ctx context.Context, q tarantool.Query, opts ...tarantool.ExecOption) (res *tarantool.Result, err error) {
 	for i := 0; i <= c.retries; i++ {
 		if err = ctx.Err(); err != nil {
-			return err
+			return
 		}
 
-		conn, err := c.conn.Connect()
+		var conn *tarantool.Connection
+		conn, err = c.conn.Connect()
 		if err != nil {
-			return err
+			return
 		}
 
-		resp := conn.Exec(ctx, q, opts...)
-		err = resp.Error
-		if err != nil && isRetryable(resp.ErrorCode) {
+		res = conn.Exec(ctx, q, opts...)
+		err = res.Error
+		if err != nil && isRetryable(res.ErrorCode) {
 			conn.Close()
 			continue
 		}
 
-		return nil
+		return
 	}
 
-	return err
+	return
 }
 
 func (c *Client) Close() {

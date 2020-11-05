@@ -79,7 +79,9 @@ type SourceConnectConfig struct {
 		ExecPath string `yaml:"dump_exec_path"`
 		// SkipMasterData set true if you have no privilege to use `--master-data`.
 		SkipMasterData bool `yaml:"skip_master_data"`
-	} `yaml:"skip_master_data"`
+		// ExtraOptions for mysqldump CLI.
+		ExtraOptions []string `yaml:"extra_options"`
+	} `yaml:"dump"`
 	Addr     string `yaml:"addr"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
@@ -117,7 +119,6 @@ type Mapping struct {
 	Source struct {
 		Schema  string   `yaml:"schema"`
 		Table   string   `yaml:"table"`
-		Pks     []string `yaml:"pks"`
 		Columns []string `yaml:"columns"`
 	} `yaml:"source"`
 
