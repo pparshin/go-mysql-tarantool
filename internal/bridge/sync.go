@@ -1,7 +1,9 @@
 package bridge
 
 import (
-	"github.com/pkg/errors"
+	"errors"
+	"fmt"
+
 	"github.com/siddontang/go-mysql/canal"
 	"github.com/siddontang/go-mysql/mysql"
 	"github.com/siddontang/go-mysql/replication"
@@ -36,7 +38,7 @@ func (h *eventHandler) OnRotate(_ *replication.RotateEvent) error {
 
 func (h *eventHandler) OnTableChanged(schema, table string) error {
 	err := h.bridge.updateRule(schema, table)
-	if err != nil && err != ErrRuleNotExist {
+	if err != nil && !errors.Is(err, ErrRuleNotExist) {
 		return err
 	}
 
@@ -67,13 +69,13 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	case canal.UpdateAction:
 		reqs, err = makeUpdateRequests(rule, e.Rows)
 	default:
-		err = errors.Errorf("invalid rows action: %s", e.Action)
+		err = fmt.Errorf("invalid rows action: %s", e.Action)
 	}
 
 	if err != nil {
 		h.bridge.cancel()
 
-		return errors.Errorf("sync %s request, what: %s", e.Action, err)
+		return fmt.Errorf("sync %s request, what: %w", e.Action, err)
 	}
 
 	batch := &batch{
