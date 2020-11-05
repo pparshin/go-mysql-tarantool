@@ -21,6 +21,7 @@ func NewZeroLogHandler(logger zerolog.Logger) *ZeroLogHandler {
 func (h *ZeroLogHandler) Write(p []byte) (n int, err error) {
 	level, msg := parseLevelAndMsg(p)
 	h.logger.WithLevel(level).Msg(msg)
+
 	return len(p), nil
 }
 
@@ -28,7 +29,7 @@ func (h *ZeroLogHandler) Close() error {
 	return nil
 }
 
-func parseLevelAndMsg(p []byte) (zerolog.Level, string) {
+func parseLevelAndMsg(p []byte) (level zerolog.Level, msg string) {
 	defLevel := zerolog.InfoLevel
 	if len(p) == 0 || p[0] != '[' {
 		return defLevel, string(p)
@@ -37,9 +38,8 @@ func parseLevelAndMsg(p []byte) (zerolog.Level, string) {
 	end := bytes.IndexByte(p[1:], ']')
 	if end == -1 {
 		return defLevel, string(p)
-	} else {
-		end++
 	}
+	end++
 
 	level, err := zerolog.ParseLevel(string(p[1:end]))
 	if err != nil {

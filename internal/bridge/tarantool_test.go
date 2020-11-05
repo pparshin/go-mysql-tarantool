@@ -211,7 +211,7 @@ func (s *tarantoolSuite) TestUpdate() {
 
 			queries := makeUpdateQueries([]*request{tt.req})
 			for _, q := range queries {
-				_, err := s.client.Exec(context.Background(), q)
+				_, err = s.client.Exec(context.Background(), q)
 				assert.NoError(t, err)
 			}
 

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	saveThreshold = int64(60) // 1s
+	saveThreshold int64 = 60 // 1s
 )
 
 type position interface {
@@ -57,6 +57,7 @@ func (g *gtidSet) String() string {
 	if g.pos == nil {
 		return ""
 	}
+
 	return g.pos.String()
 }
 

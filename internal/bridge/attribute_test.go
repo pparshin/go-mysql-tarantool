@@ -82,6 +82,7 @@ func Test_toUint64(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := toUint64(tt.arg)
 			if tt.wantErr {

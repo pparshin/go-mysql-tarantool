@@ -101,6 +101,7 @@ func makeUpdateRequests(r *rule, rows [][]interface{}) ([]*request, error) {
 
 			if pkBefore != pkAfter {
 				isPKChanged = true
+
 				break
 			}
 		}

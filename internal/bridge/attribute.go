@@ -42,6 +42,7 @@ func newAttrsFromPKs(table *schema.Table) []*attribute {
 			unsigned: col.IsUnsigned,
 		})
 	}
+
 	return pks
 }
 

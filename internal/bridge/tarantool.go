@@ -38,11 +38,13 @@ func makeUpdateQueries(reqs []*request) []tnt.Query {
 	for _, req := range reqs {
 		if req.action == actionDelete {
 			queries = append(queries, makeDeleteQuery(req))
+
 			continue
 		}
 
 		if req.action == actionInsert {
 			queries = append(queries, makeInsertQuery(req))
+
 			continue
 		}
 
