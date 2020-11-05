@@ -15,8 +15,8 @@ jobs:
     steps:
       - name: Set up MySQL client
         run: |
-          apt update
-          apt install -y mysql-client
+          sudo apt update
+          sudo apt install -y mysql-client
           mysqldump --version
 
       - name: Set up Go 1.14
