@@ -94,7 +94,15 @@ func (s *bridgeSuite) AfterTest(_, _ string) {
 	})
 	assert.NoError(t, err)
 
+	_, err = s.executeTNT(&tarantool.Eval{
+		Expression: "box.space.logins:truncate()",
+	})
+	assert.NoError(t, err)
+
 	_, err = s.executeSQL("TRUNCATE city.users")
+	assert.NoError(t, err)
+
+	_, err = s.executeSQL("TRUNCATE city.logins")
 	assert.NoError(t, err)
 
 	_, err = s.executeSQL("RESET MASTER")
@@ -264,4 +272,37 @@ func (s *bridgeSuite) TestReplicationWithoutDump() {
 	require.NotEmpty(t, got.Data)
 	require.Len(t, got.Data, 1)
 	require.EqualValues(t, []interface{}{uint64(201), "alice", "12345", "alice@email.com"}, got.Data[0])
+}
+
+func (s *bridgeSuite) TestUpdatePrimaryKeys() {
+	t := s.T()
+	s.init(s.cfg)
+
+	go func() {
+		errors := s.bridge.Run()
+		for err := range errors {
+			assert.NoError(t, err)
+		}
+	}()
+
+	_, err := s.executeSQL("INSERT INTO city.logins (username, ip, date, attempts) VALUES (?, ?, ?, ?)", "alice", "192.168.1.1", 1604571708, 4)
+	require.NoError(t, err)
+
+	_, err = s.executeSQL("UPDATE city.logins SET ip = ?, date = ?, attempts = ? where username = ?", "192.168.1.167", 1604571910, 14, "alice")
+	require.NoError(t, err)
+
+	err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
+	require.NoError(t, err)
+
+	time.Sleep(50 * time.Millisecond) // ensure that all events synced
+
+	got, err := s.executeTNT(&tarantool.Select{
+		Space:    "logins",
+		Iterator: tarantool.IterAll,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.NotEmpty(t, got.Data)
+	require.Len(t, got.Data, 1)
+	require.EqualValues(t, []interface{}{"alice", "192.168.1.167", uint64(1604571910), int64(14)}, got.Data[0])
 }
