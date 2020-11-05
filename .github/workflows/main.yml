@@ -18,7 +18,7 @@ jobs:
           wget -c https://repo.mysql.com//mysql-apt-config_0.8.16-1_all.deb
           sudo dpkg -i mysql-apt-config_0.8.16-1_all.deb
           sudo apt update
-          sudo apt install -y mysql-client-8.0
+          sudo apt install -y mysql-client
           mysqldump --version
 
       - name: Set up Go 1.14
