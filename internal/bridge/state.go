@@ -232,12 +232,12 @@ func (s *fileSaver) save(pos position, force bool) error {
 
 	buf, err := json.Marshal(pos)
 	if err != nil {
-		return fmt.Errorf("failed to save sync position, pos: %s, what: %s", pos, err)
+		return fmt.Errorf("failed to save sync position, pos: %s, what: %w", pos, err)
 	}
 
 	err = ioutil2.WriteFileAtomic(s.filepath, buf, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to save sync position, file: %s, pos: %s, what: %s", s.filepath, pos, err)
+		return fmt.Errorf("failed to save sync position, file: %s, pos: %s, what: %w", s.filepath, pos, err)
 	}
 
 	return nil

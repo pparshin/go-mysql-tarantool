@@ -246,7 +246,7 @@ func (b *Bridge) Run() <-chan error {
 
 		err := b.syncLoop()
 		if err != nil {
-			errCh <- fmt.Errorf("sync loop error: %s", err)
+			errCh <- fmt.Errorf("sync loop error: %w", err)
 
 			err = b.Close()
 			if err != nil {

@@ -1,6 +1,6 @@
 package bridge
 
-import "github.com/pkg/errors"
+import "fmt"
 
 type action string
 
@@ -77,7 +77,7 @@ func makeInsertBatch(r *rule, rows [][]interface{}) ([]*request, error) {
 
 func makeUpdateRequests(r *rule, rows [][]interface{}) ([]*request, error) {
 	if len(rows)%2 != 0 {
-		return nil, errors.Errorf("invalid update rows event, must have 2x rows, but %d", len(rows))
+		return nil, fmt.Errorf("invalid update rows event, must have 2x rows, but %d", len(rows))
 	}
 
 	reqs := make([]*request, 0, len(rows))
