@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -43,6 +44,30 @@ func (s *bridgeSuite) executeSQL(query string, args ...interface{}) (*mysql.Resu
 
 func (s *bridgeSuite) executeTNT(query tarantool.Query) (*tarantool.Result, error) {
 	return s.tntConn.Exec(context.Background(), query)
+}
+
+func (s *bridgeSuite) hasSyncedData(space string, tuples uint64) bool {
+	cnt, err := s.countTuples(space)
+	if assert.NoError(s.T(), err) {
+		return cnt == tuples
+	}
+
+	return false
+}
+
+func (s *bridgeSuite) countTuples(space string) (uint64, error) {
+	res, err := s.executeTNT(&tarantool.Eval{
+		Expression: fmt.Sprintf("return box.space.%s:count()", space),
+	})
+	if err != nil {
+		return 0, err
+	}
+	data := res.Data
+	if len(data) == 1 && len(data[0]) == 1 {
+		return toUint64(data[0][0])
+	}
+
+	return 0, fmt.Errorf("unexpected count result: %v", data)
 }
 
 func TestReplication(t *testing.T) {
@@ -123,9 +148,10 @@ func (s *bridgeSuite) TestNewBridge() {
 
 func (s *bridgeSuite) TestDump() {
 	t := s.T()
+	tuples := 200
 
 	// Prepare initial data.
-	for i := 0; i < 200; i++ {
+	for i := 0; i < tuples; i++ {
 		_, err := s.executeSQL("INSERT INTO city.users (username, password, name, email) VALUES (?, ?, ?, ?)", "bob", "12345", "Bob", "bob@email.com")
 		require.NoError(t, err)
 	}
@@ -141,20 +167,12 @@ func (s *bridgeSuite) TestDump() {
 
 	<-s.bridge.canal.WaitDumpDone()
 
-	time.Sleep(50 * time.Millisecond) // ensure that all events synced
+	require.Eventually(t, func() bool {
+		return s.hasSyncedData("users", uint64(tuples))
+	}, 500*time.Millisecond, 50*time.Millisecond)
 
 	err := s.bridge.Close()
 	assert.NoError(t, err)
-
-	got, err := s.executeTNT(&tarantool.Select{
-		Space:    "users",
-		Limit:    300,
-		Iterator: tarantool.IterAll,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	require.NotEmpty(t, got.Data)
-	require.Len(t, got.Data, 200)
 }
 
 func (s *bridgeSuite) TestReplication() {
@@ -212,27 +230,20 @@ tank:
 		assert.True(t, masterGTIDSet.Contain(gtidPos.pos), "bridge: %s, master: %s", gtidPos.pos, masterGTIDSet)
 	}
 
-	time.Sleep(50 * time.Millisecond) // ensure that all events synced
+	require.Eventually(t, func() bool {
+		return s.hasSyncedData("users", uint64(inserted/2))
+	}, 500*time.Millisecond, 50*time.Millisecond)
 
 	err = s.bridge.Close()
 	assert.NoError(t, err)
-
-	got, err := s.executeTNT(&tarantool.Select{
-		Space:    "users",
-		Limit:    200,
-		Iterator: tarantool.IterAll,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	require.NotEmpty(t, got.Data)
-	require.Len(t, got.Data, inserted/2)
 }
 
 func (s *bridgeSuite) TestReplicationWithoutDump() {
 	t := s.T()
+	tuples := 200
 
 	// Prepare initial data.
-	for i := 0; i < 200; i++ {
+	for i := 0; i < tuples; i++ {
 		_, err := s.executeSQL("INSERT INTO city.users (username, password, name, email) VALUES (?, ?, ?, ?)", "bob", "12345", "Bob", "bob@email.com")
 		require.NoError(t, err)
 	}
@@ -258,7 +269,9 @@ func (s *bridgeSuite) TestReplicationWithoutDump() {
 	err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
 	require.NoError(t, err)
 
-	time.Sleep(50 * time.Millisecond) // ensure that all events synced
+	require.Eventually(t, func() bool {
+		return s.hasSyncedData("users", 1)
+	}, 500*time.Millisecond, 50*time.Millisecond)
 
 	err = s.bridge.Close()
 	assert.NoError(t, err)
@@ -294,7 +307,9 @@ func (s *bridgeSuite) TestUpdatePrimaryKeys() {
 	err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
 	require.NoError(t, err)
 
-	time.Sleep(50 * time.Millisecond) // ensure that all events synced
+	require.Eventually(t, func() bool {
+		return s.hasSyncedData("logins", 1)
+	}, 500*time.Millisecond, 50*time.Millisecond)
 
 	got, err := s.executeTNT(&tarantool.Select{
 		Space:    "logins",
