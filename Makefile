@@ -10,6 +10,10 @@ all: build
 build:
 	go build ${LDFLAGS} -o bin/${BINARY} cmd/replicator/main.go
 
+.PHONY: lint
+lint:
+	golangci-lint run -v ./...
+
 .PHONY: run
 run: build
 	bin/${BINARY} -config=configs/dev.yml

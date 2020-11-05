@@ -17,11 +17,12 @@ type rule struct {
 	tableInfo *schema.Table
 }
 
-func ruleKey(schema, table string) string {
+func ruleKey(db, table string) string {
 	var sb strings.Builder
-	sb.Grow(len(schema) + len(table) + 1)
-	sb.WriteString(schema)
+	sb.Grow(len(db) + len(table) + 1)
+	sb.WriteString(db)
 	sb.WriteByte(':')
 	sb.WriteString(table)
+
 	return sb.String()
 }

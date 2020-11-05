@@ -15,9 +15,9 @@ import (
 	"github.com/pparshin/go-mysql-tarantool/internal/tarantool"
 )
 
-var (
-	ErrRuleNotExist = errors.New("rule is not exist")
-)
+const eventsBufSize = 4096
+
+var ErrRuleNotExist = errors.New("rule is not exist")
 
 type Bridge struct {
 	rules map[string]*rule
@@ -37,7 +37,7 @@ type Bridge struct {
 func New(cfg *config.Config, logger zerolog.Logger) (*Bridge, error) {
 	b := &Bridge{
 		logger:    logger,
-		syncCh:    make(chan interface{}, 4096),
+		syncCh:    make(chan interface{}, eventsBufSize),
 		closeOnce: &sync.Once{},
 	}
 
@@ -106,6 +106,7 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 			for _, pk := range pks {
 				if name == pk.name {
 					isPK = true
+
 					break
 				}
 			}
@@ -235,7 +236,8 @@ func (b *Bridge) newTarantoolClient(cfg *config.Config) {
 //
 // Returns closed channel with all errors or an empty channel.
 func (b *Bridge) Run() <-chan error {
-	errCh := make(chan error, 3)
+	maxErrs := 3
+	errCh := make(chan error, maxErrs)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -314,6 +316,7 @@ func (b *Bridge) doBatch(req *batch) error {
 			b.logger.Err(err).
 				Str("query", fmt.Sprintf("%+v", q)).
 				Msg("could not exec tarantool query")
+
 			return err
 		}
 	}

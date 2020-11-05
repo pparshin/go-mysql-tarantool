@@ -64,6 +64,7 @@ func (c *Client) Exec(ctx context.Context, q tarantool.Query, opts ...tarantool.
 		err = res.Error
 		if err != nil && isRetryable(res.ErrorCode) {
 			conn.Close()
+
 			continue
 		}
 

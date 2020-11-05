@@ -163,6 +163,7 @@ func Test_makeInsertRequest(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := makeInsertRequest(tt.args.r, tt.args.row)
 			if tt.wantErr {
@@ -413,6 +414,7 @@ func Test_makeUpdateRequests(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := makeUpdateRequests(tt.args.r, tt.args.rows)
 			if tt.wantErr {
@@ -566,6 +568,7 @@ func Test_makeDeleteRequest(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := makeDeleteRequest(tt.args.r, tt.args.row)
 			if tt.wantErr {

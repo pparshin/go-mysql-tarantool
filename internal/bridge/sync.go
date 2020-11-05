@@ -14,6 +14,7 @@ func mustCreateGTID(flavor, s string) mysql.GTIDSet {
 	if err != nil {
 		panic(err)
 	}
+
 	return set
 }
 
@@ -33,7 +34,7 @@ func (h *eventHandler) OnRotate(_ *replication.RotateEvent) error {
 	return h.bridge.ctx.Err()
 }
 
-func (h *eventHandler) OnTableChanged(schema string, table string) error {
+func (h *eventHandler) OnTableChanged(schema, table string) error {
 	err := h.bridge.updateRule(schema, table)
 	if err != nil && err != ErrRuleNotExist {
 		return err
@@ -71,6 +72,7 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 
 	if err != nil {
 		h.bridge.cancel()
+
 		return errors.Errorf("sync %s request, what: %s", e.Action, err)
 	}
 
