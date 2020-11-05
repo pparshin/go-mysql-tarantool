@@ -14,6 +14,15 @@ It uses `mysqldump` to fetch the origin data at first, then syncs data increment
 - `mysqldump` must exist in the same node with mysql-tarantool-replicator. 
   If not, replicator will try to sync binlog only.
 
+### MySQL
+
+Create or use exist user with replication grants:
+
+```sql
+GRANT RELOAD, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'repl'@'%';
+FLUSH PRIVILEGES;
+```
+
 ## Mappings
 
 Replicator can map MySQL tables to one or more Tarantool spaces. 
@@ -21,3 +30,5 @@ Each mapping item contains the names of a database and a table,
 a list of replicated columns, a space name.
 
 Replicator reads primary keys from MySQL table info and sync them automatically.
+Updating primary key in MySQL causes two Tarantool requests: delete an old row and insert a new one, because
+it is illegal to update primary key in Tarantool.
