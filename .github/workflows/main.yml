@@ -13,10 +13,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up MySQL client
+      - name: Set up MySQL client 8.x
         run: |
-          sudo apt update
-          sudo apt install -y mysql-client
+          wget -c https://repo.mysql.com//mysql-apt-config_0.8.16-1_all.deb
+          sudo dpkg -i mysql-apt-config_0.8.16-1_all.deb
+          sudo apt install -y mysql-client-8.0
           mysqldump --version
 
       - name: Set up Go 1.14
