@@ -298,7 +298,7 @@ func (s *bridgeSuite) TestUpdatePrimaryKeys() {
 		}
 	}()
 
-	_, err := s.executeSQL("INSERT INTO city.logins (username, ip, date, attempts) VALUES (?, ?, ?, ?)", "alice", "192.168.1.1", 1604571708, 4)
+	_, err := s.executeSQL("INSERT INTO city.logins (username, ip, date, attempts, longitude, latitude) VALUES (?, ?, ?, ?, ?, ?)", "alice", "192.168.1.1", 1604571708, 4, 73.98, 40.74)
 	require.NoError(t, err)
 
 	_, err = s.executeSQL("UPDATE city.logins SET ip = ?, date = ?, attempts = ? where username = ?", "192.168.1.167", 1604571910, 14, "alice")
@@ -319,5 +319,10 @@ func (s *bridgeSuite) TestUpdatePrimaryKeys() {
 	require.NotNil(t, got)
 	require.NotEmpty(t, got.Data)
 	require.Len(t, got.Data, 1)
-	require.EqualValues(t, []interface{}{"alice", "192.168.1.167", uint64(1604571910), int64(14)}, got.Data[0])
+	want := []interface{}{"alice", "192.168.1.167", 1604571910, 14, 73.98, 40.74}
+	gotTuple := got.Data[0]
+	require.Len(t, gotTuple, len(want))
+	for i, v := range want {
+		require.EqualValues(t, v, gotTuple[i])
+	}
 }
