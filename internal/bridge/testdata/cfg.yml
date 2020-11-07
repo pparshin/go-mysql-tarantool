@@ -47,5 +47,7 @@ replication:
         table: 'logins'
         columns:
           - attempts
+          - longitude
+          - latitude
       dest:
         space: 'logins'

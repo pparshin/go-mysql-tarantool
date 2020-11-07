@@ -1,18 +1,39 @@
 package bridge
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/siddontang/go-mysql/schema"
 )
 
+type attrType int
+
+//nolint
+const (
+	typeNumber    attrType = iota + 1 // tinyint, smallint, int, bigint, year
+	typeFloat                         // float, double
+	typeEnum                          // enum
+	typeSet                           // set
+	typeString                        // char, varchar, etc.
+	typeDatetime                      // datetime
+	typeTimestamp                     // timestamp
+	typeDate                          // date
+	typeTime                          // time
+	typeBit                           // bit
+	typeJSON                          // json
+	typeDecimal                       // decimal
+	typeMediumInt                     // medium int
+	typeBinary                        // binary, varbinary
+	typePoint                         // coordinates
+)
+
 // attribute represents MySQL column mapped to Tarantool.
 type attribute struct {
-	colIndex uint64 // column sequence number in MySQL table
-	tupIndex uint64 // attribute sequence number in Tarantool tuple
-	name     string // unique attribute name
-	unsigned bool   // whether attribute contains unsigned number or not
+	colIndex uint64   // column sequence number in MySQL table
+	tupIndex uint64   // attribute sequence number in Tarantool tuple
+	name     string   // unique attribute name
+	vtype    attrType // value type stored in the column
+	unsigned bool     // whether attribute contains unsigned number or not
 }
 
 func newAttr(table *schema.Table, tupIndex uint64, name string) (*attribute, error) {
@@ -27,6 +48,7 @@ func newAttr(table *schema.Table, tupIndex uint64, name string) (*attribute, err
 		colIndex: uint64(idx),
 		tupIndex: tupIndex,
 		name:     col.Name,
+		vtype:    attrType(col.Type),
 		unsigned: col.IsUnsigned,
 	}, nil
 }
@@ -52,11 +74,24 @@ func (a *attribute) fetchValue(row []interface{}) (interface{}, error) {
 	}
 
 	value := row[a.colIndex]
-	if a.unsigned {
+
+	if a.shouldCastToUInt64(value) {
 		return toUint64(value)
 	}
 
 	return value, nil
+}
+
+func (a *attribute) shouldCastToUInt64(value interface{}) bool {
+	if value == nil {
+		return false
+	}
+
+	if !a.unsigned {
+		return false
+	}
+
+	return a.vtype == typeNumber || a.vtype == typeMediumInt
 }
 
 func toUint64(i interface{}) (uint64, error) {
@@ -83,5 +118,5 @@ func toUint64(i interface{}) (uint64, error) {
 		return i, nil
 	}
 
-	return 0, errors.New("could not cast to uint64")
+	return 0, fmt.Errorf("could not cast %T to uint64: %v", i, i)
 }

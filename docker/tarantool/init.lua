@@ -30,6 +30,8 @@ box.once("init", function()
         { name = 'ip', type = 'string' },
         { name = 'date', type = 'integer' },
         { name = 'attempts', type = 'unsigned' },
+        { name = 'longitude', type = 'number' },
+        { name = 'latitude', type = 'number' },
     })
 
     logins_space:create_index('primary', {

@@ -6,6 +6,138 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_attribute_fetchValue(t *testing.T) {
+	type fields struct {
+		colIndex uint64
+		tupIndex uint64
+		name     string
+		vtype    attrType
+		unsigned bool
+	}
+	type args struct {
+		row []interface{}
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    interface{}
+		wantErr bool
+	}{
+		{
+			name: "String",
+			fields: fields{
+				colIndex: 0,
+				tupIndex: 0,
+				name:     "name",
+				vtype:    typeString,
+				unsigned: false,
+			},
+			args: args{
+				row: []interface{}{"alice"},
+			},
+			want:    "alice",
+			wantErr: false,
+		},
+		{
+			name: "SignedNumber",
+			fields: fields{
+				colIndex: 0,
+				tupIndex: 0,
+				name:     "speed",
+				vtype:    typeNumber,
+				unsigned: false,
+			},
+			args: args{
+				row: []interface{}{-20},
+			},
+			want:    -20,
+			wantErr: false,
+		},
+		{
+			name: "UnsignedMediumInt",
+			fields: fields{
+				colIndex: 0,
+				tupIndex: 0,
+				name:     "id",
+				vtype:    typeMediumInt,
+				unsigned: true,
+			},
+			args: args{
+				row: []interface{}{10},
+			},
+			want:    uint64(10),
+			wantErr: false,
+		},
+		{
+			name: "UnsignedNumber",
+			fields: fields{
+				colIndex: 0,
+				tupIndex: 0,
+				name:     "id",
+				vtype:    typeNumber,
+				unsigned: true,
+			},
+			args: args{
+				row: []interface{}{10},
+			},
+			want:    uint64(10),
+			wantErr: false,
+		},
+		{
+			name: "ColumnIndexEqualRowLen",
+			fields: fields{
+				colIndex: 1,
+				tupIndex: 1,
+				name:     "name",
+				vtype:    typeString,
+				unsigned: false,
+			},
+			args: args{
+				row: []interface{}{"alice"},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "ColumnIndexGTRowLen",
+			fields: fields{
+				colIndex: 5,
+				tupIndex: 5,
+				name:     "name",
+				vtype:    typeString,
+				unsigned: false,
+			},
+			args: args{
+				row: []interface{}{1, "alice"},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			a := &attribute{
+				colIndex: tt.fields.colIndex,
+				tupIndex: tt.fields.tupIndex,
+				name:     tt.fields.name,
+				vtype:    tt.fields.vtype,
+				unsigned: tt.fields.unsigned,
+			}
+			got, err := a.fetchValue(tt.args.row)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, got)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
 func Test_toUint64(t *testing.T) {
 	tests := []struct {
 		name    string

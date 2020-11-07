@@ -96,10 +96,11 @@ func (s *tarantoolSuite) TestInsert() {
 					{field: 1, value: "10.10.10.1"},
 					{field: 2, value: 1604338416},
 				},
-				args: []reqArg{{
-					field: 3,
-					value: uint64(2),
-				}},
+				args: []reqArg{
+					{field: 3, value: uint64(2)},
+					{field: 4, value: 12.4},
+					{field: 5, value: 14.5},
+				},
 			},
 		},
 	}
@@ -175,6 +176,8 @@ func (s *tarantoolSuite) TestUpdate() {
 				},
 				args: []reqArg{
 					{field: 3, value: uint64(2)},
+					{field: 4, value: 12.4},
+					{field: 5, value: 14.5},
 				},
 			},
 			req: &request{
@@ -187,6 +190,8 @@ func (s *tarantoolSuite) TestUpdate() {
 				},
 				args: []reqArg{
 					{field: 3, value: uint64(222)},
+					{field: 4, value: 120.4},
+					{field: 5, value: 18.5},
 				},
 			},
 			get: &tarantool.Select{
@@ -198,6 +203,8 @@ func (s *tarantoolSuite) TestUpdate() {
 				"10.10.10.1",
 				1604338416,
 				uint64(222),
+				120.4,
+				18.5,
 			},
 		},
 	}
@@ -279,6 +286,8 @@ func (s *tarantoolSuite) TestDelete() {
 				},
 				args: []reqArg{
 					{field: 3, value: uint64(2)},
+					{field: 4, value: 12.4},
+					{field: 5, value: 14.5},
 				},
 			},
 			req: &request{
