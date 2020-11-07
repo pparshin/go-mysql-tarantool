@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"log/syslog"
+	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"syscall"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	sidlog "github.com/siddontang/go-log/log"
@@ -19,6 +23,7 @@ import (
 	"github.com/pparshin/go-mysql-tarantool/internal/adapter"
 	"github.com/pparshin/go-mysql-tarantool/internal/bridge"
 	"github.com/pparshin/go-mysql-tarantool/internal/config"
+	"github.com/pparshin/go-mysql-tarantool/internal/metrics"
 )
 
 var (
@@ -40,6 +45,18 @@ func main() {
 
 	logger := initLogger(cfg)
 	logger.Info().Msgf("starting replicator %s, commit %s, built at %s", version, commit, buildDate)
+
+	metrics.Init()
+
+	server := initHTTPServer(cfg.App.ListenAddr)
+	go func() {
+		logger.Info().Msgf("listening on %s", cfg.App.ListenAddr)
+
+		err = server.ListenAndServe()
+		if err != http.ErrServerClosed {
+			logger.Fatal().Err(err).Msg("failed to listen HTTP server")
+		}
+	}()
 
 	b, err := bridge.New(cfg, logger)
 	if err != nil {
@@ -67,6 +84,11 @@ func main() {
 	err = b.Close()
 	if err != nil {
 		logger.Err(err).Msg("failed to stop replicator")
+	}
+
+	err = server.Shutdown(context.Background())
+	if err != nil {
+		logger.Err(err).Msg("failed to shutting down the HTTP server gracefully")
 	}
 }
 
@@ -131,4 +153,16 @@ func newRollingLogFile(cfg *config.Logging) (io.Writer, error) {
 		MaxSize:    cfg.MaxSize,
 		MaxAge:     cfg.MaxAge,
 	}, nil
+}
+
+func initHTTPServer(addr string) *http.Server {
+	server := &http.Server{
+		Addr:         addr,
+		ReadTimeout:  5 * time.Second, //nolint:gomnd
+		WriteTimeout: 5 * time.Second, //nolint:gomnd
+	}
+
+	http.Handle("/metrics", promhttp.Handler())
+
+	return server
 }

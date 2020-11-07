@@ -23,6 +23,7 @@ func TestReadFromFile_ValidPath(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
+	assert.Equal(t, ":8081", cfg.App.ListenAddr)
 	assert.Equal(t, "/etc/mysql-tarantool-replicator/state.info", cfg.App.DataFile)
 
 	loggingCfg := cfg.App.Logging

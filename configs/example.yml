@@ -1,4 +1,5 @@
 app:
+  listen_addr: ':8080'
   data_file: '/etc/mysql-tarantool-replicator/state.info'
   logging:
     level: 'debug'
