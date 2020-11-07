@@ -66,6 +66,7 @@ linters:
     - godox
     - exhaustivestruct
     - wrapcheck
+    - errorlint
 
 service:
   golangci-lint-version: 1.32.x # use the fixed version to not introduce new linters unexpectedly

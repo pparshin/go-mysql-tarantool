@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	defaultListenAddr         = ":8080"
 	defaultDataFile           = "/etc/mysql-tarantool-replicator/state.info"
 	defaultLogLevel           = "debug"
 	defaultSysLogEnabled      = false
@@ -43,8 +44,9 @@ type Config struct {
 }
 
 type AppConfig struct {
-	DataFile string  `yaml:"data_file"`
-	Logging  Logging `yaml:"logging"`
+	ListenAddr string  `yaml:"listen_addr"`
+	DataFile   string  `yaml:"data_file"`
+	Logging    Logging `yaml:"logging"`
 }
 
 type Logging struct {
@@ -61,6 +63,8 @@ func (c *AppConfig) withDefaults() {
 	if c == nil {
 		return
 	}
+
+	c.ListenAddr = defaultListenAddr
 
 	c.DataFile = defaultDataFile
 

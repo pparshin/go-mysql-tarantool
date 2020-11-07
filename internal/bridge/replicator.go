@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/siddontang/go-mysql/canal"
@@ -12,6 +13,7 @@ import (
 	tnt "github.com/viciious/go-tarantool"
 
 	"github.com/pparshin/go-mysql-tarantool/internal/config"
+	"github.com/pparshin/go-mysql-tarantool/internal/metrics"
 	"github.com/pparshin/go-mysql-tarantool/internal/tarantool"
 )
 
@@ -236,6 +238,15 @@ func (b *Bridge) newTarantoolClient(cfg *config.Config) {
 //
 // Returns closed channel with all errors or an empty channel.
 func (b *Bridge) Run() <-chan error {
+	metrics.SetReplicationState(true)
+	defer metrics.SetReplicationState(false)
+
+	go func() {
+		for range time.Tick(1 * time.Second) {
+			metrics.SetSecondsBehindMaster(b.canal.GetDelay())
+		}
+	}()
+
 	maxErrs := 3
 	errCh := make(chan error, maxErrs)
 
