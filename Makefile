@@ -24,7 +24,7 @@ run_short_tests:
 
 .PHONY: run_tests
 run_tests: env_up
-	go test -count=1 -v -race ./...
+	go test -p=1 -count=1 -v -race ./...
 
 .PHONY: env_up
 env_up:

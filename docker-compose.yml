@@ -2,7 +2,7 @@ version: '3.4'
 
 services:
   mysql:
-    image: mysql:${MYSQL_VERSION:-5.7.21}
+    image: mysql:${MYSQL_VERSION:-5.7.32}
     environment:
       - MYSQL_DATABASE=city
       - MYSQL_USER=repl
@@ -18,6 +18,6 @@ services:
     build:
       context: ./docker/tarantool
       args:
-        VERSION: ${TARANTOOL_VERSION:-2.6.0}
+        VERSION: ${TARANTOOL_VERSION:-2.6.1}
     ports:
       - '13301:3301'

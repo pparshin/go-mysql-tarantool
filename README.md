@@ -19,7 +19,7 @@ It uses `mysqldump` to fetch the origin data at first, then syncs data increment
 Create or use exist user with replication grants:
 
 ```sql
-GRANT RELOAD, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'repl'@'%';
+GRANT PROCESS, RELOAD, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'repl'@'%';
 FLUSH PRIVILEGES;
 ```
 
