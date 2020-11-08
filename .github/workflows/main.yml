@@ -12,6 +12,10 @@ jobs:
 
   build:
     runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        mysql: [ 5.7.32, 8.0.22 ]
+        tarantool: [ 1.10.8, 2.6.1 ]
     steps:
       - name: Print mysqldump version
         run: |
@@ -34,6 +38,9 @@ jobs:
         run: make build
 
       - name: Test
+        env:
+          MYSQL_VERSION: ${{ matrix.mysql }}
+          TARANTOOL_VERSION: ${{ matrix.tarantool }}
         run: |
           make env_up
           make run_tests
