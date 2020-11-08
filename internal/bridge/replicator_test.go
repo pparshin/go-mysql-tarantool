@@ -46,6 +46,13 @@ func (s *bridgeSuite) executeTNT(query tarantool.Query) (*tarantool.Result, erro
 	return s.tntConn.Exec(context.Background(), query)
 }
 
+func (s *bridgeSuite) hasSyncedPos() bool {
+	syncedGTID := s.bridge.canal.SyncedGTIDSet()
+	savedPos := s.bridge.stateSaver.position()
+
+	return savedPos.equal(newGTIDSet(syncedGTID))
+}
+
 func (s *bridgeSuite) hasSyncedData(space string, tuples uint64) bool {
 	cnt, err := s.countTuples(space)
 	if assert.NoError(s.T(), err) {
@@ -130,9 +137,6 @@ func (s *bridgeSuite) AfterTest(_, _ string) {
 	_, err = s.executeSQL("TRUNCATE city.logins")
 	assert.NoError(t, err)
 
-	_, err = s.executeSQL("RESET MASTER")
-	assert.NoError(t, err)
-
 	dataDir := path.Dir(s.cfg.App.DataFile)
 
 	err = os.RemoveAll(dataDir)
@@ -148,7 +152,16 @@ func (s *bridgeSuite) TestNewBridge() {
 
 func (s *bridgeSuite) TestDump() {
 	t := s.T()
+	dumpPath := "/usr/bin/mysqldump"
+	if !assert.FileExists(t, dumpPath) {
+		t.Skip("test requires mysqldump utility")
+	}
+
 	tuples := 200
+
+	cfg := *s.cfg
+	cfg.Replication.ConnectionSrc.Dump.ExecPath = dumpPath
+	s.init(&cfg)
 
 	// Prepare initial data.
 	for i := 0; i < tuples; i++ {
@@ -222,69 +235,19 @@ tank:
 	err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
 	require.NoError(t, err)
 
-	masterGTIDSet, err := s.bridge.canal.GetMasterGTIDSet()
-	assert.NoError(t, err)
-	bridgePos := s.bridge.stateSaver.position()
-	gtidPos, ok := bridgePos.(*gtidSet)
-	if assert.True(t, ok) {
-		assert.True(t, masterGTIDSet.Contain(gtidPos.pos), "bridge: %s, master: %s", gtidPos.pos, masterGTIDSet)
-	}
-
-	require.Eventually(t, func() bool {
+	assert.Eventually(t, func() bool {
 		return s.hasSyncedData("users", uint64(inserted/2))
 	}, 500*time.Millisecond, 50*time.Millisecond)
 
-	err = s.bridge.Close()
-	assert.NoError(t, err)
-}
-
-func (s *bridgeSuite) TestReplicationWithoutDump() {
-	t := s.T()
-	tuples := 200
-
-	// Prepare initial data.
-	for i := 0; i < tuples; i++ {
-		_, err := s.executeSQL("INSERT INTO city.users (username, password, name, email) VALUES (?, ?, ?, ?)", "bob", "12345", "Bob", "bob@email.com")
-		require.NoError(t, err)
-	}
-
-	// Purge current binlog.
-	_, err := s.executeSQL("RESET MASTER")
-	require.NoError(t, err)
-
-	cfg := *s.cfg
-	cfg.Replication.ConnectionSrc.Dump.ExecPath = ""
-	s.init(&cfg)
-
-	go func() {
-		errors := s.bridge.Run()
-		for err := range errors {
-			assert.NoError(t, err)
-		}
-	}()
-
-	_, err = s.executeSQL("INSERT INTO city.users (username, password, name, email) VALUES (?, ?, ?, ?)", "alice", "12345", "Alice", "alice@email.com")
-	require.NoError(t, err)
-
-	err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		return s.hasSyncedData("users", 1)
-	}, 500*time.Millisecond, 50*time.Millisecond)
+	assert.Eventually(t,
+		s.hasSyncedPos,
+		500*time.Millisecond,
+		50*time.Millisecond,
+		"bridge: %s, master: %s", s.bridge.stateSaver.position(), s.bridge.canal.SyncedGTIDSet(),
+	)
 
 	err = s.bridge.Close()
 	assert.NoError(t, err)
-
-	got, err := s.executeTNT(&tarantool.Select{
-		Space:    "users",
-		Iterator: tarantool.IterAll,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	require.NotEmpty(t, got.Data)
-	require.Len(t, got.Data, 1)
-	require.EqualValues(t, []interface{}{uint64(201), "alice", "12345", "alice@email.com"}, got.Data[0])
 }
 
 func (s *bridgeSuite) TestUpdatePrimaryKeys() {
@@ -311,6 +274,9 @@ func (s *bridgeSuite) TestUpdatePrimaryKeys() {
 		return s.hasSyncedData("logins", 1)
 	}, 500*time.Millisecond, 50*time.Millisecond)
 
+	err = s.bridge.Close()
+	assert.NoError(t, err)
+
 	got, err := s.executeTNT(&tarantool.Select{
 		Space:    "logins",
 		Iterator: tarantool.IterAll,
@@ -324,5 +290,35 @@ func (s *bridgeSuite) TestUpdatePrimaryKeys() {
 	require.Len(t, gotTuple, len(want))
 	for i, v := range want {
 		require.EqualValues(t, v, gotTuple[i])
+	}
+}
+
+func (s *bridgeSuite) TestReconnect() {
+	t := s.T()
+
+	for i := 1; i < 5; i++ {
+		s.init(s.cfg)
+
+		go func() {
+			errors := s.bridge.Run()
+			for err := range errors {
+				assert.NoError(t, err)
+			}
+		}()
+
+		name := fmt.Sprintf("robot_%d", i)
+		_, err := s.executeSQL("INSERT INTO city.users (username, password, name, email) VALUES (?, ?, ?, ?)", name, "12345", name, "robot@email.com")
+		require.NoError(t, err)
+
+		err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
+		require.NoError(t, err)
+
+		wantTuples := uint64(i)
+		require.Eventually(t, func() bool {
+			return s.hasSyncedData("users", wantTuples)
+		}, 500*time.Millisecond, 50*time.Millisecond)
+
+		err = s.bridge.Close()
+		assert.NoError(t, err)
 	}
 }
