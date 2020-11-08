@@ -88,24 +88,15 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	return h.bridge.ctx.Err()
 }
 
-func (h *eventHandler) OnGTID(set mysql.GTIDSet) error {
-	if h.gtidMode {
-		h.bridge.syncCh <- &savePos{
-			pos:   newGTIDSet(set),
-			force: false,
-		}
-	}
-
+func (h *eventHandler) OnGTID(_ mysql.GTIDSet) error {
 	return h.bridge.ctx.Err()
 }
 
 func (h *eventHandler) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force bool) error {
 	if h.gtidMode {
-		if force && !emptyGTID.Equal(set) {
-			h.bridge.syncCh <- &savePos{
-				pos:   newGTIDSet(set),
-				force: force,
-			}
+		h.bridge.syncCh <- &savePos{
+			pos:   newGTIDSet(set),
+			force: force,
 		}
 	} else {
 		h.bridge.syncCh <- &savePos{
