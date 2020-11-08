@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,9 +30,14 @@ type bridgeSuite struct {
 	tntConn *tnt.Client
 	logger  zerolog.Logger
 	cfg     *config.Config
+
+	mu *sync.Mutex
 }
 
 func (s *bridgeSuite) init(cfg *config.Config) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	b, err := New(cfg, s.logger)
 	require.NoError(s.T(), err)
 
@@ -111,6 +117,7 @@ func TestReplication(t *testing.T) {
 		tntConn: tntConn,
 		logger:  logger,
 		cfg:     cfg,
+		mu:      &sync.Mutex{},
 	})
 }
 
