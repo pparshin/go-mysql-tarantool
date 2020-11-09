@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"path"
@@ -10,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog"
+	"github.com/siddontang/go-mysql/client"
+	"github.com/siddontang/go-mysql/mysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -25,7 +25,7 @@ type bridgeSuite struct {
 	suite.Suite
 
 	bridge  *Bridge
-	sqlConn *sql.DB
+	sqlConn *client.Conn
 	tntConn *tnt.Client
 	logger  zerolog.Logger
 	cfg     *config.Config
@@ -38,8 +38,8 @@ func (s *bridgeSuite) init(cfg *config.Config) {
 	s.bridge = b
 }
 
-func (s *bridgeSuite) executeSQL(query string, args ...interface{}) (sql.Result, error) {
-	return s.sqlConn.Exec(query, args...)
+func (s *bridgeSuite) executeSQL(query string, args ...interface{}) (*mysql.Result, error) {
+	return s.sqlConn.Execute(query, args...)
 }
 
 func (s *bridgeSuite) executeTNT(query tarantool.Query) (*tarantool.Result, error) {
@@ -92,8 +92,7 @@ func TestReplication(t *testing.T) {
 	logger := zerolog.New(zerolog.NewConsoleWriter())
 
 	connSrc := cfg.Replication.ConnectionSrc
-
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/city", connSrc.User, connSrc.Password, connSrc.Addr))
+	sqlConn, err := client.Connect(connSrc.Addr, connSrc.User, connSrc.Password, "city")
 	require.NoError(t, err)
 
 	connDest := cfg.Replication.ConnectionDest
@@ -107,7 +106,7 @@ func TestReplication(t *testing.T) {
 	})
 
 	suite.Run(t, &bridgeSuite{
-		sqlConn: db,
+		sqlConn: sqlConn,
 		tntConn: tntConn,
 		logger:  logger,
 		cfg:     cfg,
