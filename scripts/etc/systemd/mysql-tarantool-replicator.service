@@ -1,0 +1,13 @@
+[Unit]
+Description=mysql-tarantool-replicator: MySQL binlog replication to Tarantool.
+Documentation=https://github.com/pparshin/go-mysql-tarantool
+After=syslog.target network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/bin
+ExecStart=/usr/local/bin/mysql-tarantool-replicator -config /etc/mysql-tarantool/conf.yml
+TimeoutSec=30
+
+[Install]
+WantedBy=multi-user.target
