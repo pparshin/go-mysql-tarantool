@@ -1,5 +1,8 @@
 app:
+  listen_addr: ':8080'
   data_file: '/tmp/mysql-tarantool-replicator/state.info'
+  health:
+    seconds_behind_master: 5
   logging:
     level: 'debug'
     syslog_enabled: false

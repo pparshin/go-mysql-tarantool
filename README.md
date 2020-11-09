@@ -32,3 +32,13 @@ a list of replicated columns, a space name.
 Replicator reads primary keys from MySQL table info and sync them automatically.
 Updating primary key in MySQL causes two Tarantool requests: delete an old row and insert a new one, because
 it is illegal to update primary key in Tarantool.
+
+## Metrics
+
+Replicator exposes several debug endpoints:
+
+* `/metrics` - runtime and app metrics in Prometheus format,
+* `/health` - health check.
+
+Health check returns status `503 Service Unavailable` if replicator is not running, dumping 
+data or replication lag greater than `app.health.seconds_behind_master` config value.
