@@ -29,7 +29,7 @@ run_tests: env_up
 .PHONY: env_up
 env_up:
 	docker-compose up -d
-	sleep 5
+	./docker/wait.sh
 	docker-compose ps
 
 .PHONY: env_down

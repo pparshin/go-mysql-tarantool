@@ -41,7 +41,8 @@ jobs:
         env:
           MYSQL_VERSION: ${{ matrix.mysql }}
           TARANTOOL_VERSION: ${{ matrix.tarantool }}
-        run: |
-          make env_up
-          make run_tests
-          make env_down
+        run: make run_tests
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: make env_down
