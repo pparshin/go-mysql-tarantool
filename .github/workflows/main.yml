@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        mysql: [ 5.7.32, 8.0.22 ]
-        tarantool: [ 1.10.8, 2.6.1 ]
+        mysql: [ 8.0.22 ]
+        tarantool: [ 2.6.1 ]
     steps:
       - name: Print mysqldump version
         run: |
