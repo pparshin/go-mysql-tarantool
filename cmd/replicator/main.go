@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/etherlabsio/healthcheck"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -48,7 +50,13 @@ func main() {
 
 	metrics.Init()
 
-	server := initHTTPServer(cfg.App.ListenAddr)
+	b, err := bridge.New(cfg, logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("could not establish bridge from MySQL to Tarantool")
+	}
+
+	health := initHealthHandler(cfg.App.Health, b)
+	server := initHTTPServer(cfg.App.ListenAddr, health)
 	go func() {
 		logger.Info().Msgf("listening on %s", cfg.App.ListenAddr)
 
@@ -58,14 +66,9 @@ func main() {
 		}
 	}()
 
-	b, err := bridge.New(cfg, logger)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("could not establish bridge from MySQL to Tarantool")
-	}
-
 	go func() {
-		errors := b.Run()
-		for errRun := range errors {
+		runErrors := b.Run()
+		for errRun := range runErrors {
 			logger.Err(errRun).Msg("got sync error")
 		}
 
@@ -155,7 +158,7 @@ func newRollingLogFile(cfg *config.Logging) (io.Writer, error) {
 	}, nil
 }
 
-func initHTTPServer(addr string) *http.Server {
+func initHTTPServer(addr string, health http.Handler) *http.Server {
 	server := &http.Server{
 		Addr:         addr,
 		ReadTimeout:  5 * time.Second, //nolint:gomnd
@@ -163,6 +166,44 @@ func initHTTPServer(addr string) *http.Server {
 	}
 
 	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/health", health)
 
 	return server
+}
+
+func initHealthHandler(cfg config.Health, b *bridge.Bridge) http.Handler {
+	sbm := uint32(cfg.SecondsBehindMaster)
+
+	return healthcheck.Handler(
+		healthcheck.WithChecker(
+			"lag", healthcheck.CheckerFunc(
+				func(ctx context.Context) error {
+					cur := b.Delay()
+					if cur > sbm {
+						return fmt.Errorf("replication lag too big: %d", cur)
+					}
+
+					return nil
+				},
+			),
+		),
+
+		healthcheck.WithChecker(
+			"state", healthcheck.CheckerFunc(
+				func(ctx context.Context) error {
+					dumping := b.Dumping()
+					if dumping {
+						return errors.New("replicator has not yet finished dump process")
+					}
+
+					running := b.Running()
+					if !running {
+						return errors.New("replication is not running")
+					}
+
+					return nil
+				},
+			),
+		),
+	)
 }

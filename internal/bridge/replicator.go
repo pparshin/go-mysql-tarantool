@@ -11,6 +11,7 @@ import (
 	"github.com/siddontang/go-mysql/canal"
 	"github.com/siddontang/go-mysql/mysql"
 	tnt "github.com/viciious/go-tarantool"
+	"go.uber.org/atomic"
 
 	"github.com/pparshin/go-mysql-tarantool/internal/config"
 	"github.com/pparshin/go-mysql-tarantool/internal/metrics"
@@ -32,6 +33,9 @@ type Bridge struct {
 	cancel context.CancelFunc
 	logger zerolog.Logger
 
+	dumping *atomic.Bool
+	running *atomic.Bool
+
 	syncCh    chan interface{}
 	closeOnce *sync.Once
 }
@@ -39,6 +43,8 @@ type Bridge struct {
 func New(cfg *config.Config, logger zerolog.Logger) (*Bridge, error) {
 	b := &Bridge{
 		logger:    logger,
+		dumping:   atomic.NewBool(false),
+		running:   atomic.NewBool(false),
 		syncCh:    make(chan interface{}, eventsBufSize),
 		closeOnce: &sync.Once{},
 	}
@@ -238,12 +244,12 @@ func (b *Bridge) newTarantoolClient(cfg *config.Config) {
 //
 // Returns closed channel with all errors or an empty channel.
 func (b *Bridge) Run() <-chan error {
-	metrics.SetReplicationState(true)
-	defer metrics.SetReplicationState(false)
+	b.setRunning(true)
+	defer b.setRunning(false)
 
 	go func() {
 		for range time.Tick(1 * time.Second) {
-			metrics.SetSecondsBehindMaster(b.canal.GetDelay())
+			metrics.SetSecondsBehindMaster(b.Delay())
 		}
 	}()
 
@@ -264,6 +270,12 @@ func (b *Bridge) Run() <-chan error {
 				errCh <- err
 			}
 		}
+	}()
+
+	b.setDumping(true)
+	go func() {
+		<-b.canal.WaitDumpDone()
+		b.setDumping(false)
 	}()
 
 	var err error
@@ -345,4 +357,26 @@ func (b *Bridge) Close() error {
 	})
 
 	return err
+}
+
+func (b *Bridge) Delay() uint32 {
+	return b.canal.GetDelay()
+}
+
+func (b *Bridge) setRunning(v bool) {
+	b.running.Store(v)
+	b.setDumping(false)
+	metrics.SetReplicationState(v)
+}
+
+func (b *Bridge) Running() bool {
+	return b.running.Load()
+}
+
+func (b *Bridge) setDumping(v bool) {
+	b.dumping.Store(v)
+}
+
+func (b *Bridge) Dumping() bool {
+	return b.dumping.Load()
 }

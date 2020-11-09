@@ -26,6 +26,9 @@ func TestReadFromFile_ValidPath(t *testing.T) {
 	assert.Equal(t, ":8081", cfg.App.ListenAddr)
 	assert.Equal(t, "/etc/mysql-tarantool-replicator/state.info", cfg.App.DataFile)
 
+	healthCfg := cfg.App.Health
+	assert.Equal(t, 5, healthCfg.SecondsBehindMaster)
+
 	loggingCfg := cfg.App.Logging
 	assert.Equal(t, "debug", loggingCfg.Level)
 	assert.True(t, loggingCfg.SysLogEnabled)

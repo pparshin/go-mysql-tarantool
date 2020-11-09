@@ -16,7 +16,7 @@ lint:
 
 .PHONY: run
 run: build
-	bin/${BINARY} -config=config/replicator.conf.yml
+	bin/${BINARY} -config=config/dev.conf.yml
 
 .PHONY: run_short_tests
 run_short_tests:
