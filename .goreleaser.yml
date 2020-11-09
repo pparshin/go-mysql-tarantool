@@ -1,0 +1,67 @@
+before:
+  hooks:
+    - go mod download
+
+project_name: mysql-tarantool-replicator
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    main: ./cmd/replicator/main.go
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.buildDate={{.Date}}
+    goarch:
+      - amd64
+
+archives:
+  - files:
+      - LICENSE
+      - README.md
+      - config/*
+
+checksum:
+  name_template: 'checksums.txt'
+  # Algorithm to be used.
+  # Accepted options are sha256, sha512, sha1, crc32, md5, sha224 and sha384.
+  # Default is sha256.
+  algorithm: sha256
+
+snapshot:
+  name_template: "{{ .Tag }}-SNAPSHOT-{{.ShortCommit}}"
+
+changelog:
+  skip: true
+
+nfpms:
+  - id: default
+    package_name: mysql-tarantool-replicator
+
+    maintainer: Pavel Parshin <parshin.pn@gmail.com>
+    homepage: https://github.com/pparshin/go-mysql-tarantool
+    description: MySQL - Tarantool replicator
+    license: MIT
+
+    formats:
+      - deb
+      - rpm
+
+    dependencies: ~
+    recommends:
+      - mysql-client
+    suggests: ~
+    conflicts: ~
+
+    bindir: /usr/local/bin
+
+    epoch: 1
+    release: 1
+
+    scripts:
+      postinstall: "scripts/postinstall.sh"
+      preremove: "scripts/preremove.sh"
+
+    files:
+      "scripts/etc/systemd/**": "/etc/systemd/system"
+
+    config_files:
+      "config/replicator.conf.yml": "/etc/mysql-tarantool/conf.yml"
