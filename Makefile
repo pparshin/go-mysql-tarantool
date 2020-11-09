@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 BINARY=mysql-tarantool-replicator
 VERSION=`git describe --tags --dirty --always`
 COMMIT=`git rev-parse HEAD`

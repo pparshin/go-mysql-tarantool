@@ -7,7 +7,9 @@ __rootdir=$(dirname "${__workdir}")
 
 cd "${__rootdir}"
 
-while ! docker-compose exec mysql mysql --user=root --password=root_pwd -e "status" &> /dev/null ; do
+echo "test"
+
+while ! docker-compose exec mysql mysql --user=root --password=root_pwd -e "status" &> /dev/stdout ; do
     echo "Waiting for MySQL connection..."
     sleep 1
 done
