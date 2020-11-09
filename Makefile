@@ -1,4 +1,3 @@
-SHELL := /bin/bash
 BINARY=mysql-tarantool-replicator
 VERSION=`git describe --tags --dirty --always`
 COMMIT=`git rev-parse HEAD`
@@ -25,7 +24,7 @@ run_short_tests:
 
 .PHONY: run_tests
 run_tests: env_up
-	go test -p=1 -count=1 -v -race ./...
+	go test -count=1 -v -race ./...
 
 .PHONY: env_up
 env_up:
