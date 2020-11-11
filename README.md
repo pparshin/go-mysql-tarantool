@@ -35,6 +35,8 @@ it is illegal to update primary key in Tarantool.
 
 ## Docker image
 
+Image available at [Docker Hub](https://hub.docker.com/r/pparshin/go-mysql-tarantool).
+
 How to build:
 
 ```bash
