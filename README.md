@@ -33,6 +33,20 @@ Replicator reads primary keys from MySQL table info and sync them automatically.
 Updating primary key in MySQL causes two Tarantool requests: delete an old row and insert a new one, because
 it is illegal to update primary key in Tarantool.
 
+## Docker image
+
+How to build:
+
+```bash
+docker build -t mysql-tarantool-replicator:latest .
+```
+
+How to use:
+
+```bash
+docker run -it --rm -v /my/custom/conf.yml:/etc/mysql-tarantool/conf.yml mysql-tarantool-replicator
+```
+
 ## Metrics
 
 Replicator exposes several debug endpoints:
