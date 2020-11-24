@@ -24,7 +24,10 @@ run_short_tests:
 
 .PHONY: run_tests
 run_tests: env_up
-	go test -count=1 -v -race ./...
+	go test -count=1 -v -race -covermode=atomic -coverprofile=profile.cov ./...
+	go tool cover -func=profile.cov
+	go tool cover -html=profile.cov -o cover.html
+	rm profile.cov
 
 .PHONY: env_up
 env_up:
