@@ -43,6 +43,12 @@ jobs:
           TARANTOOL_VERSION: ${{ matrix.tarantool }}
         run: make run_tests
 
+      - name: Code coverage
+        if: ${{ matrix.mysql == '5.7.32' && matrix.tarantool == '1.10.8' }}
+        uses: codecov/codecov-action@v1
+        with:
+          file: profile.cov
+
       - name: Cleanup
         if: ${{ always() }}
         run: make env_down

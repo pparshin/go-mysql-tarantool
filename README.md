@@ -1,3 +1,8 @@
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/pparshin/go-mysql-tarantool?sort=semver&style=for-the-badge)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/pparshin/go-mysql-tarantool/CI?style=for-the-badge)
+![Coverage Status](https://img.shields.io/codecov/c/github/pparshin/go-mysql-tarantool?style=for-the-badge)
+
+
 # MySQL - Tarantool replicator
 
 It is a service to replicate data from MySQL into Tarantool automatically.
