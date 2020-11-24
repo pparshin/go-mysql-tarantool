@@ -43,6 +43,31 @@ jobs:
           TARANTOOL_VERSION: ${{ matrix.tarantool }}
         run: make run_tests
 
+      - name: Convert profile.cov to coverage.lcov
+        uses: jandelgado/gcov2lcov-action@v1.0.6
+        with:
+          infile: profile.cov
+
+      - name: Test coverage
+        uses: coverallsapp/github-action@v1.1.2
+        with:
+          github-token: ${{ secrets.github_token }}
+          path-to-lcov: coverage.lcov
+
       - name: Cleanup
         if: ${{ always() }}
         run: make env_down
+
+  coverage:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Install Go
+        if: success()
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.15.x
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Calc coverage
+        run: |
+          go test -v -covermode=count -coverprofile=coverage.out
