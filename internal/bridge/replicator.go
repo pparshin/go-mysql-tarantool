@@ -97,6 +97,7 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 	rules := make(map[string]*rule, len(cfg.Replication.Mappings))
 	for _, mapping := range cfg.Replication.Mappings {
 		source := mapping.Source
+		cast := mapping.Dest.Cast
 
 		tableInfo, err := b.canal.GetTable(source.Schema, source.Table)
 		if err != nil {
@@ -106,6 +107,10 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 		pks := newAttrsFromPKs(tableInfo)
 		if len(pks) == 0 {
 			return fmt.Errorf("no primary keys found, schema: %s, table: %s", source.Schema, source.Table)
+		}
+		for _, pk := range pks {
+			typ := castTypeFromString(cast[pk.name])
+			pk.castTo(typ)
 		}
 
 		attrs := make([]*attribute, 0, len(source.Columns))
@@ -125,6 +130,9 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 				if err != nil {
 					return err
 				}
+				typ := castTypeFromString(cast[name])
+				attr.castTo(typ)
+
 				attrs = append(attrs, attr)
 			}
 		}

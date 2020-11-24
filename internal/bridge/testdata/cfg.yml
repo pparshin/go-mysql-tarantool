@@ -54,3 +54,5 @@ replication:
           - latitude
       dest:
         space: 'logins'
+        cast:
+          attempts: 'unsigned'

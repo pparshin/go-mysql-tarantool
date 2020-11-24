@@ -134,7 +134,8 @@ type Mapping struct {
 	} `yaml:"source"`
 
 	Dest struct {
-		Space string `yaml:"space"`
+		Space string            `yaml:"space"`
+		Cast  map[string]string `yaml:"cast"`
 	} `yaml:"dest"`
 }
 
