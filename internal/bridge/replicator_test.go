@@ -169,8 +169,6 @@ func (s *bridgeSuite) TestDump() {
 		require.NoError(t, err)
 	}
 
-	s.init(s.cfg)
-
 	go func() {
 		errors := s.bridge.Run()
 		for err := range errors {
@@ -321,4 +319,59 @@ func (s *bridgeSuite) TestReconnect() {
 		err = s.bridge.Close()
 		assert.NoError(t, err)
 	}
+}
+
+func (s *bridgeSuite) TestRenameColumn() {
+	t := s.T()
+
+	s.init(s.cfg)
+
+	go func() {
+		errors := s.bridge.Run()
+		for err := range errors {
+			assert.NoError(t, err)
+		}
+	}()
+
+	<-s.bridge.canal.WaitDumpDone()
+
+	_, err := s.executeSQL("INSERT INTO city.users (username, password, name, email) VALUES (?, ?, ?, ?)", "bob", "12345", "Bob", "bob@email.com")
+	require.NoError(t, err)
+
+	_, err = s.executeSQL("ALTER TABLE city.users CHANGE `name` `new_name` varchar(50)")
+	require.NoError(t, err)
+
+	defer func() {
+		_, err = s.executeSQL("ALTER TABLE city.users CHANGE `new_name` `name` varchar(50)")
+		require.NoError(t, err)
+	}()
+
+	_, err = s.executeSQL("INSERT INTO city.users (id, username, password, new_name, email) VALUES (?, ?, ?, ?, ?)", 2, "alice", "123", "Alice", "alice@email.com")
+	require.NoError(t, err)
+
+	err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
+	require.NoError(t, err)
+
+	wantRows := uint64(2)
+	require.Eventually(t, func() bool {
+		return s.hasSyncedData("users", wantRows)
+	}, 500*time.Millisecond, 50*time.Millisecond)
+
+	got, err := s.executeTNT(&tarantool.Select{
+		Space: "users",
+		Key:   2,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.NotEmpty(t, got.Data)
+	require.Len(t, got.Data, 1)
+	want := []interface{}{2, "alice", "123", "alice@email.com"}
+	gotTuple := got.Data[0]
+	require.Len(t, gotTuple, len(want))
+	for i, v := range want {
+		require.EqualValues(t, v, gotTuple[i])
+	}
+
+	err = s.bridge.Close()
+	assert.NoError(t, err)
 }
