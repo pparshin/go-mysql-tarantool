@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -288,6 +289,57 @@ func (s *bridgeSuite) TestUpdatePrimaryKeys() {
 	require.Len(t, gotTuple, len(want))
 	for i, v := range want {
 		require.EqualValues(t, v, gotTuple[i])
+	}
+}
+
+func (s *bridgeSuite) TestForceCast() {
+	t := s.T()
+
+	for step := 1; step <= 2; step++ {
+		wantErr := step == 2
+
+		cfg := *s.cfg
+		if wantErr {
+			for i := range cfg.Replication.Mappings {
+				cfg.Replication.Mappings[i].Dest.Cast = nil
+			}
+		}
+
+		s.init(&cfg)
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			errors := s.bridge.Run()
+			if wantErr {
+				assert.Len(t, errors, 1)
+			} else {
+				for err := range errors {
+					assert.NoError(t, err)
+				}
+			}
+		}()
+
+		name := fmt.Sprintf("alice_%d", step)
+		_, err := s.executeSQL("INSERT INTO city.logins (username, ip, date, attempts, longitude, latitude) VALUES (?, ?, ?, ?, ?, ?)", name, "192.168.1.1", 1604571708, 404, 73.98, 40.74)
+		require.NoError(t, err)
+
+		if wantErr {
+			wg.Wait()
+		} else {
+			err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
+			require.NoError(t, err)
+
+			require.Eventually(t, func() bool {
+				return s.hasSyncedData("logins", 1)
+			}, 500*time.Millisecond, 50*time.Millisecond)
+		}
+
+		err = s.bridge.Close()
+		assert.NoError(t, err)
 	}
 }
 

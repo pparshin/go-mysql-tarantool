@@ -27,12 +27,29 @@ const (
 	typePoint                         // coordinates
 )
 
+type castType int
+
+const (
+	castNone     castType = iota // do not cast
+	castUnsigned                 // unsigned
+)
+
+func castTypeFromString(str string) castType {
+	switch str {
+	case "unsigned":
+		return castUnsigned
+	default:
+		return castNone
+	}
+}
+
 // attribute represents MySQL column mapped to Tarantool.
 type attribute struct {
 	colIndex uint64   // column sequence number in MySQL table
 	tupIndex uint64   // attribute sequence number in Tarantool tuple
 	name     string   // unique attribute name
-	vtype    attrType // value type stored in the column
+	vType    attrType // value type stored in the column
+	cType    castType // value must be casted to this type
 	unsigned bool     // whether attribute contains unsigned number or not
 }
 
@@ -48,7 +65,8 @@ func newAttr(table *schema.Table, tupIndex uint64, name string) (*attribute, err
 		colIndex: uint64(idx),
 		tupIndex: tupIndex,
 		name:     col.Name,
-		vtype:    attrType(col.Type),
+		vType:    attrType(col.Type),
+		cType:    castNone,
 		unsigned: col.IsUnsigned,
 	}, nil
 }
@@ -61,11 +79,17 @@ func newAttrsFromPKs(table *schema.Table) []*attribute {
 			colIndex: uint64(pki),
 			tupIndex: uint64(i),
 			name:     col.Name,
+			vType:    attrType(col.Type),
+			cType:    castNone,
 			unsigned: col.IsUnsigned,
 		})
 	}
 
 	return pks
+}
+
+func (a *attribute) castTo(t castType) {
+	a.cType = t
 }
 
 func (a *attribute) fetchValue(row []interface{}) (interface{}, error) {
@@ -76,7 +100,12 @@ func (a *attribute) fetchValue(row []interface{}) (interface{}, error) {
 	value := row[a.colIndex]
 
 	if a.shouldCastToUInt64(value) {
-		return toUint64(value)
+		v, err := toUint64(value)
+		if err != nil {
+			return nil, err
+		}
+
+		return v, nil
 	}
 
 	return value, nil
@@ -87,11 +116,15 @@ func (a *attribute) shouldCastToUInt64(value interface{}) bool {
 		return false
 	}
 
+	if a.cType == castUnsigned {
+		return true
+	}
+
 	if !a.unsigned {
 		return false
 	}
 
-	return a.vtype == typeNumber || a.vtype == typeMediumInt
+	return a.vType == typeNumber || a.vType == typeMediumInt
 }
 
 func toUint64(i interface{}) (uint64, error) {

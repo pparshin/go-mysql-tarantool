@@ -45,3 +45,5 @@ replication:
           - email
       dest:
         space: 'users'
+        cast:
+          attempts: 'unsigned'

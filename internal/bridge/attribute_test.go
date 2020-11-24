@@ -11,7 +11,8 @@ func Test_attribute_fetchValue(t *testing.T) {
 		colIndex uint64
 		tupIndex uint64
 		name     string
-		vtype    attrType
+		vType    attrType
+		cType    castType
 		unsigned bool
 	}
 	type args struct {
@@ -30,7 +31,8 @@ func Test_attribute_fetchValue(t *testing.T) {
 				colIndex: 0,
 				tupIndex: 0,
 				name:     "name",
-				vtype:    typeString,
+				vType:    typeString,
+				cType:    castNone,
 				unsigned: false,
 			},
 			args: args{
@@ -45,7 +47,8 @@ func Test_attribute_fetchValue(t *testing.T) {
 				colIndex: 0,
 				tupIndex: 0,
 				name:     "speed",
-				vtype:    typeNumber,
+				vType:    typeNumber,
+				cType:    castNone,
 				unsigned: false,
 			},
 			args: args{
@@ -55,12 +58,45 @@ func Test_attribute_fetchValue(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "Number_ForceCastToUnsigned",
+			fields: fields{
+				colIndex: 0,
+				tupIndex: 0,
+				name:     "speed",
+				vType:    typeNumber,
+				cType:    castUnsigned,
+				unsigned: false,
+			},
+			args: args{
+				row: []interface{}{20},
+			},
+			want:    uint64(20),
+			wantErr: false,
+		},
+		{
+			name: "Float_ForceCastToUnsigned_Error",
+			fields: fields{
+				colIndex: 0,
+				tupIndex: 0,
+				name:     "speed",
+				vType:    typeFloat,
+				cType:    castUnsigned,
+				unsigned: false,
+			},
+			args: args{
+				row: []interface{}{4654.123},
+			},
+			want:    0,
+			wantErr: true,
+		},
+		{
 			name: "UnsignedMediumInt",
 			fields: fields{
 				colIndex: 0,
 				tupIndex: 0,
 				name:     "id",
-				vtype:    typeMediumInt,
+				vType:    typeMediumInt,
+				cType:    castNone,
 				unsigned: true,
 			},
 			args: args{
@@ -75,7 +111,8 @@ func Test_attribute_fetchValue(t *testing.T) {
 				colIndex: 0,
 				tupIndex: 0,
 				name:     "id",
-				vtype:    typeNumber,
+				vType:    typeNumber,
+				cType:    castNone,
 				unsigned: true,
 			},
 			args: args{
@@ -90,7 +127,8 @@ func Test_attribute_fetchValue(t *testing.T) {
 				colIndex: 1,
 				tupIndex: 1,
 				name:     "name",
-				vtype:    typeString,
+				vType:    typeString,
+				cType:    castNone,
 				unsigned: false,
 			},
 			args: args{
@@ -105,7 +143,8 @@ func Test_attribute_fetchValue(t *testing.T) {
 				colIndex: 5,
 				tupIndex: 5,
 				name:     "name",
-				vtype:    typeString,
+				vType:    typeString,
+				cType:    castNone,
 				unsigned: false,
 			},
 			args: args{
@@ -123,7 +162,8 @@ func Test_attribute_fetchValue(t *testing.T) {
 				colIndex: tt.fields.colIndex,
 				tupIndex: tt.fields.tupIndex,
 				name:     tt.fields.name,
-				vtype:    tt.fields.vtype,
+				vType:    tt.fields.vType,
+				cType:    tt.fields.cType,
 				unsigned: tt.fields.unsigned,
 			}
 			got, err := a.fetchValue(tt.args.row)
