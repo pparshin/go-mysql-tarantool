@@ -45,5 +45,11 @@ replication:
           - email
       dest:
         space: 'users'
-        cast:
-          attempts: 'unsigned'
+        column:
+          attempts:
+            cast: 'unsigned'
+            on_null: 0
+          email:
+            on_null: ''
+          client_id:
+            cast: 'unsigned'

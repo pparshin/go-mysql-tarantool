@@ -45,3 +45,6 @@ replication:
           - email
       dest:
         space: 'users'
+        column:
+          email:
+            on_null: 'stub@mail.ru'

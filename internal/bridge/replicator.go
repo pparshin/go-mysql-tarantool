@@ -65,8 +65,6 @@ func New(cfg *config.Config, logger zerolog.Logger) (*Bridge, error) {
 		return nil, err
 	}
 
-	b.syncRulesAndCanalDump()
-
 	// We must use binlog full row image.
 	if err := b.canal.CheckBinlogRowImage("FULL"); err != nil {
 		return nil, err
@@ -97,7 +95,7 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 	rules := make(map[string]*rule, len(cfg.Replication.Mappings))
 	for _, mapping := range cfg.Replication.Mappings {
 		source := mapping.Source
-		cast := mapping.Dest.Cast
+		colmap := mapping.Dest.Column
 
 		tableInfo, err := b.canal.GetTable(source.Schema, source.Table)
 		if err != nil {
@@ -109,8 +107,10 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 			return fmt.Errorf("no primary keys found, schema: %s, table: %s", source.Schema, source.Table)
 		}
 		for _, pk := range pks {
-			typ := castTypeFromString(cast[pk.name])
-			pk.castTo(typ)
+			if m, ok := colmap[pk.name]; ok {
+				pk.castTo(castTypeFromString(m.Cast))
+				pk.onNull = m.OnNull
+			}
 		}
 
 		attrs := make([]*attribute, 0, len(source.Columns))
@@ -130,8 +130,11 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 				if err != nil {
 					return err
 				}
-				typ := castTypeFromString(cast[name])
-				attr.castTo(typ)
+
+				if m, ok := colmap[name]; ok {
+					attr.castTo(castTypeFromString(m.Cast))
+					attr.onNull = m.OnNull
+				}
 
 				attrs = append(attrs, attr)
 			}
@@ -151,6 +154,7 @@ func (b *Bridge) newRules(cfg *config.Config) error {
 	}
 
 	b.rules = rules
+	b.syncRulesAndCanalDump()
 
 	return nil
 }

@@ -13,6 +13,7 @@ func Test_attribute_fetchValue(t *testing.T) {
 		name     string
 		vType    attrType
 		cType    castType
+		onNull   interface{}
 		unsigned bool
 	}
 	type args struct {
@@ -122,6 +123,40 @@ func Test_attribute_fetchValue(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "String_ReplaceOnNull",
+			fields: fields{
+				colIndex: 0,
+				tupIndex: 0,
+				name:     "email",
+				vType:    typeString,
+				cType:    castNone,
+				onNull:   "replacement",
+				unsigned: false,
+			},
+			args: args{
+				row: []interface{}{nil},
+			},
+			want:    "replacement",
+			wantErr: false,
+		},
+		{
+			name: "UnsignedNumber_ReplaceOnNull",
+			fields: fields{
+				colIndex: 0,
+				tupIndex: 0,
+				name:     "id",
+				vType:    typeNumber,
+				cType:    castUnsigned,
+				onNull:   102,
+				unsigned: false,
+			},
+			args: args{
+				row: []interface{}{nil},
+			},
+			want:    uint64(102),
+			wantErr: false,
+		},
+		{
 			name: "ColumnIndexEqualRowLen",
 			fields: fields{
 				colIndex: 1,
@@ -164,6 +199,7 @@ func Test_attribute_fetchValue(t *testing.T) {
 				name:     tt.fields.name,
 				vType:    tt.fields.vType,
 				cType:    tt.fields.cType,
+				onNull:   tt.fields.onNull,
 				unsigned: tt.fields.unsigned,
 			}
 			got, err := a.fetchValue(tt.args.row)
