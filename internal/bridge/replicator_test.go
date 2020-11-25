@@ -300,6 +300,9 @@ func (s *bridgeSuite) TestForceCast() {
 
 		cfg := *s.cfg
 		if wantErr {
+			cfg.Replication.Mappings = make([]config.Mapping, len(s.cfg.Replication.Mappings))
+			copy(cfg.Replication.Mappings, s.cfg.Replication.Mappings)
+
 			for i := range cfg.Replication.Mappings {
 				cfg.Replication.Mappings[i].Dest.Column = nil
 			}
