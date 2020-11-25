@@ -38,19 +38,22 @@ Replicator reads primary keys from MySQL table info and sync them automatically.
 Updating primary key in MySQL causes two Tarantool requests: delete an old row and insert a new one, because
 it is illegal to update primary key in Tarantool.
 
-### Force cast MySQL value
+### Custom mapping rules for columns
 
 Replicator can cast the value from MySQL to the required type 
 if your Tarantool schema does not comply with the MySQL schema.
 For example, MySQL column stores `bigint(20)` values, but Tarantool
 expects `unsigned`. 
-Without explicit casting you get an error, e.g.:
+Without explicit casting you will get an error, e.g.:
 > Tuple field 1 type does not match one required by operation: expected unsigned
 
 Supported types to cast to:
 * `unsigned`: try to cast any number to unsigned value.
 
-To enable this feature specify which column should be casted:
+If MySQL column stores `null` values, you can replace them by another value.
+It is useful when the space format is defined or you have an index on this field in Tarantool. 
+
+Custom column mapping configuration example:
 
 ```yaml
 ...
@@ -62,8 +65,14 @@ To enable this feature specify which column should be casted:
           - client_id
       dest:
         space: 'users'
-        cast:
-          client_id: 'unsigned'
+        column:
+          id:
+            cast: 'unsigned'
+          email:
+            on_null: 'my_default_value'
+          client_id: 
+            cast: 'unsigned'
+            on_null: 0
 ```
 
 ## Docker image

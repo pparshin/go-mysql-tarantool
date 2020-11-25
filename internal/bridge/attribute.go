@@ -45,12 +45,13 @@ func castTypeFromString(str string) castType {
 
 // attribute represents MySQL column mapped to Tarantool.
 type attribute struct {
-	colIndex uint64   // column sequence number in MySQL table
-	tupIndex uint64   // attribute sequence number in Tarantool tuple
-	name     string   // unique attribute name
-	vType    attrType // value type stored in the column
-	cType    castType // value must be casted to this type
-	unsigned bool     // whether attribute contains unsigned number or not
+	colIndex uint64      // column sequence number in MySQL table
+	tupIndex uint64      // attribute sequence number in Tarantool tuple
+	name     string      // unique attribute name
+	vType    attrType    // value type stored in the column
+	cType    castType    // value must be casted to this type
+	onNull   interface{} // replace null by this value
+	unsigned bool        // whether attribute contains unsigned number or not
 }
 
 func newAttr(table *schema.Table, tupIndex uint64, name string) (*attribute, error) {
@@ -99,6 +100,10 @@ func (a *attribute) fetchValue(row []interface{}) (interface{}, error) {
 
 	value := row[a.colIndex]
 
+	if value == nil && a.onNull != nil {
+		value = a.onNull
+	}
+
 	if a.shouldCastToUInt64(value) {
 		v, err := toUint64(value)
 		if err != nil {
@@ -112,12 +117,12 @@ func (a *attribute) fetchValue(row []interface{}) (interface{}, error) {
 }
 
 func (a *attribute) shouldCastToUInt64(value interface{}) bool {
-	if value == nil {
-		return false
-	}
-
 	if a.cType == castUnsigned {
 		return true
+	}
+
+	if value == nil {
+		return false
 	}
 
 	if !a.unsigned {

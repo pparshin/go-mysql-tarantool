@@ -67,6 +67,20 @@ func TestReadFromFile_ValidPath(t *testing.T) {
 	assert.Equal(t, "users", mapping.Source.Table)
 	assert.Equal(t, []string{"username", "password", "email"}, mapping.Source.Columns)
 	assert.Equal(t, "users", mapping.Dest.Space)
-	assert.Len(t, mapping.Dest.Cast, 1)
-	assert.Contains(t, mapping.Dest.Cast, "attempts")
+	assert.Len(t, mapping.Dest.Column, 3)
+	columnMapping, ok := mapping.Dest.Column["attempts"]
+	if assert.True(t, ok) {
+		assert.Equal(t, "unsigned", columnMapping.Cast)
+		assert.Equal(t, 0, columnMapping.OnNull)
+	}
+	columnMapping, ok = mapping.Dest.Column["email"]
+	if assert.True(t, ok) {
+		assert.Equal(t, "", columnMapping.Cast)
+		assert.Equal(t, "", columnMapping.OnNull)
+	}
+	columnMapping, ok = mapping.Dest.Column["client_id"]
+	if assert.True(t, ok) {
+		assert.Equal(t, "unsigned", columnMapping.Cast)
+		assert.Nil(t, columnMapping.OnNull)
+	}
 }

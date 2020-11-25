@@ -134,9 +134,14 @@ type Mapping struct {
 	} `yaml:"source"`
 
 	Dest struct {
-		Space string            `yaml:"space"`
-		Cast  map[string]string `yaml:"cast"`
+		Space  string                   `yaml:"space"`
+		Column map[string]MappingColumn `yaml:"column"`
 	} `yaml:"dest"`
+}
+
+type MappingColumn struct {
+	Cast   string      `yaml:"cast"`
+	OnNull interface{} `yaml:"on_null,omitempty"`
 }
 
 func ReadFromFile(path string) (*Config, error) {

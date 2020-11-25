@@ -301,7 +301,7 @@ func (s *bridgeSuite) TestForceCast() {
 		cfg := *s.cfg
 		if wantErr {
 			for i := range cfg.Replication.Mappings {
-				cfg.Replication.Mappings[i].Dest.Cast = nil
+				cfg.Replication.Mappings[i].Dest.Column = nil
 			}
 		}
 
@@ -340,6 +340,46 @@ func (s *bridgeSuite) TestForceCast() {
 
 		err = s.bridge.Close()
 		assert.NoError(t, err)
+	}
+}
+
+func (s *bridgeSuite) TestReplaceOnNull() {
+	t := s.T()
+	s.init(s.cfg)
+
+	go func() {
+		errors := s.bridge.Run()
+		for err := range errors {
+			assert.NoError(t, err)
+		}
+	}()
+
+	_, err := s.executeSQL("INSERT INTO city.users (username, password, name, email) VALUES (?, ?, ?, ?)", "alice", "12345", "Alice", nil)
+	require.NoError(t, err)
+
+	err = s.bridge.canal.CatchMasterPos(500 * time.Millisecond)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return s.hasSyncedData("users", 1)
+	}, 500*time.Millisecond, 50*time.Millisecond)
+
+	err = s.bridge.Close()
+	assert.NoError(t, err)
+
+	got, err := s.executeTNT(&tarantool.Select{
+		Space:    "users",
+		Iterator: tarantool.IterAll,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.NotEmpty(t, got.Data)
+	require.Len(t, got.Data, 1)
+	want := []interface{}{1, "alice", "12345", "null"}
+	gotTuple := got.Data[0]
+	require.Len(t, gotTuple, len(want))
+	for i, v := range want {
+		require.EqualValues(t, v, gotTuple[i])
 	}
 }
 

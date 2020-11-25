@@ -6,7 +6,7 @@ CREATE TABLE users
     username varchar(16)            not null,
     password varchar(254)           not null,
     name     varchar(50) default '' not null,
-    email    varchar(254)           not null
+    email    varchar(254)
 ) charset = utf8;
 
 CREATE TABLE logins
