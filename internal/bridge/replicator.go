@@ -33,8 +33,9 @@ type Bridge struct {
 	cancel context.CancelFunc
 	logger zerolog.Logger
 
-	dumping *atomic.Bool
-	running *atomic.Bool
+	dumping  *atomic.Bool
+	running  *atomic.Bool
+	syncedAt *atomic.Int64
 
 	syncCh    chan interface{}
 	closeOnce *sync.Once
@@ -45,6 +46,7 @@ func New(cfg *config.Config, logger zerolog.Logger) (*Bridge, error) {
 		logger:    logger,
 		dumping:   atomic.NewBool(false),
 		running:   atomic.NewBool(false),
+		syncedAt:  atomic.NewInt64(0),
 		syncCh:    make(chan interface{}, eventsBufSize),
 		closeOnce: &sync.Once{},
 	}
@@ -258,11 +260,7 @@ func (b *Bridge) newTarantoolClient(cfg *config.Config) {
 func (b *Bridge) Run() <-chan error {
 	defer b.setRunning(false)
 
-	go func() {
-		for range time.Tick(1 * time.Second) {
-			metrics.SetSecondsBehindMaster(b.Delay())
-		}
-	}()
+	go b.runBackgroundJobs()
 
 	maxErrs := 3
 	errCh := make(chan error, maxErrs)
@@ -328,6 +326,7 @@ func (b *Bridge) syncLoop() error {
 					return err
 				}
 			}
+			b.syncedAt.Store(time.Now().Unix())
 		case <-b.ctx.Done():
 			return nil
 		}
@@ -399,4 +398,22 @@ func (b *Bridge) setDumping(v bool) {
 
 func (b *Bridge) Dumping() bool {
 	return b.dumping.Load()
+}
+
+func (b *Bridge) runBackgroundJobs() {
+	go func() {
+		for range time.Tick(1 * time.Second) {
+			metrics.SetSecondsBehindMaster(b.Delay())
+		}
+	}()
+
+	go func() {
+		for range time.Tick(1 * time.Second) {
+			syncedAt := b.syncedAt.Load()
+			if syncedAt > 0 {
+				now := time.Now().Unix()
+				metrics.SetSyncedSecondsAgo(now - syncedAt)
+			}
+		}
+	}()
 }
