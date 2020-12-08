@@ -2,6 +2,14 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
+type ReplState int8
+
+const (
+	StateStopped ReplState = iota
+	StateDumping
+	StateRunning
+)
+
 var (
 	secondsBehindMaster = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "mysql2tarantool",
@@ -12,7 +20,7 @@ var (
 	replState = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "mysql2tarantool",
 		Name:      "state",
-		Help:      "The replication running state: 0=stopped, 1=ok",
+		Help:      "The replication running state: 0=stopped, 1=dumping, 2=running",
 	})
 )
 
@@ -25,10 +33,6 @@ func SetSecondsBehindMaster(value uint32) {
 	secondsBehindMaster.Set(float64(value))
 }
 
-func SetReplicationState(state bool) {
-	v := 0
-	if state {
-		v = 1
-	}
-	replState.Set(float64(v))
+func SetReplicationState(state ReplState) {
+	replState.Set(float64(state))
 }
