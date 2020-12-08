@@ -14,7 +14,13 @@ var (
 	secondsBehindMaster = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "mysql2tarantool",
 		Name:      "seconds_behind",
-		Help:      "Current replication lag of the replicator",
+		Help:      "Current replication lag of the replicator. Calculates as diff between current timestamp and last event timestamp. The value updates only after receiving the event.",
+	})
+
+	syncedSecondsAgo = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "mysql2tarantool",
+		Name:      "synced_seconds_ago",
+		Help:      "Seconds since the last event has been synced",
 	})
 
 	replState = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -27,10 +33,15 @@ var (
 func Init() {
 	prometheus.MustRegister(secondsBehindMaster)
 	prometheus.MustRegister(replState)
+	prometheus.MustRegister(syncedSecondsAgo)
 }
 
 func SetSecondsBehindMaster(value uint32) {
 	secondsBehindMaster.Set(float64(value))
+}
+
+func SetSyncedSecondsAgo(sec int64) {
+	syncedSecondsAgo.Set(float64(sec))
 }
 
 func SetReplicationState(state ReplState) {
