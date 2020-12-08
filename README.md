@@ -97,6 +97,7 @@ Replicator exposes several debug endpoints:
 
 * `/metrics` - runtime and app metrics in Prometheus format,
 * `/health` - health check.
+* `/about` - shows app version and build information.
 
 Health check returns status `503 Service Unavailable` if replicator is not running, dumping 
 data or replication lag greater than `app.health.seconds_behind_master` config value.
