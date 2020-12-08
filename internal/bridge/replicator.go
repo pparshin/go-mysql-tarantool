@@ -256,7 +256,6 @@ func (b *Bridge) newTarantoolClient(cfg *config.Config) {
 //
 // Returns closed channel with all errors or an empty channel.
 func (b *Bridge) Run() <-chan error {
-	b.setRunning(true)
 	defer b.setRunning(false)
 
 	go func() {
@@ -288,6 +287,7 @@ func (b *Bridge) Run() <-chan error {
 	go func() {
 		<-b.canal.WaitDumpDone()
 		b.setDumping(false)
+		b.setRunning(true)
 	}()
 
 	var err error
@@ -378,7 +378,12 @@ func (b *Bridge) Delay() uint32 {
 func (b *Bridge) setRunning(v bool) {
 	b.running.Store(v)
 	b.setDumping(false)
-	metrics.SetReplicationState(v)
+
+	if v {
+		metrics.SetReplicationState(metrics.StateRunning)
+	} else {
+		metrics.SetReplicationState(metrics.StateStopped)
+	}
 }
 
 func (b *Bridge) Running() bool {
@@ -387,6 +392,9 @@ func (b *Bridge) Running() bool {
 
 func (b *Bridge) setDumping(v bool) {
 	b.dumping.Store(v)
+	if v {
+		metrics.SetReplicationState(metrics.StateDumping)
+	}
 }
 
 func (b *Bridge) Dumping() bool {

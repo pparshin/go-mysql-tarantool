@@ -177,7 +177,15 @@ func (s *bridgeSuite) TestDump() {
 		}
 	}()
 
+	assert.Eventually(t, s.bridge.Dumping, 100*time.Millisecond, 5*time.Millisecond)
+	assert.False(t, s.bridge.Running())
+
 	<-s.bridge.canal.WaitDumpDone()
+
+	assert.Eventually(t, func() bool {
+		return !s.bridge.Dumping()
+	}, 100*time.Millisecond, 5*time.Millisecond)
+	assert.True(t, s.bridge.Running())
 
 	require.Eventually(t, func() bool {
 		return s.hasSyncedData("users", uint64(tuples))
@@ -185,6 +193,9 @@ func (s *bridgeSuite) TestDump() {
 
 	err := s.bridge.Close()
 	assert.NoError(t, err)
+
+	assert.False(t, s.bridge.Dumping())
+	assert.False(t, s.bridge.Running())
 }
 
 func (s *bridgeSuite) TestReplication() {
